@@ -1,0 +1,13 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8082/api}
+    image: ngdtdemo-frontend:1.0.0
+    container_name: ngdtdemo-frontend
+    ports:
+      - "${FRONTEND_PORT:-8083}:8083"
+    restart: always
