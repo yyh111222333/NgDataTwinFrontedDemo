@@ -5,7 +5,9 @@ WORKDIR /app
 
 # 先拷贝依赖清单，提高缓存命中
 COPY package*.json ./
-RUN npm install
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+RUN npm config set registry ${NPM_REGISTRY} \
+    && if [ -f package-lock.json ]; then npm ci --no-audit --prefer-offline; else npm install --no-audit --prefer-offline; fi
 
 # 再拷贝项目源码并打包
 COPY . .
