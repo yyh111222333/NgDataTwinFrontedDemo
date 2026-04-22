@@ -1,4 +1,4 @@
-# 第1阶段：构建前端 docker build -t ngdtdemo-frontend:1.0.0 .
+# 第1阶段：构建前端 docker build -t ngdtdemo-frontend:1.0.2 .
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -30,4 +30,7 @@ EXPOSE 8083
 # 启动 nginx
 CMD ["nginx", "-g", "daemon off;"]
 
-# 运行  docker run -d --name scp-frontend -p 8083:8083 --restart always ngdtdemo-frontend:1.0.0
+# 运行  
+# docker stop ngdtdemo-frontend || true
+# docker rm ngdtdemo-frontend || true
+# docker run -d --name ngdtdemo-frontend -p 8083:8083 --restart always ngdtdemo-frontend:1.0.2
