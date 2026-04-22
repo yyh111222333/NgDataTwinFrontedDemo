@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DashboardDeviceRecord, RailStatus } from '@/types/dashboard'
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 export type CockpitDataSource = 'mock' | 'api'
 
@@ -39,6 +39,69 @@ const selectedRegion = ref('A区')
 const selectedDevice = ref('人员智能门/联锁门')
 const regionDraft = ref('')
 const deviceDraft = ref('')
+const panelRef = ref<HTMLElement | null>(null)
+const panelLeft = ref(0)
+const panelTop = ref(96)
+const isDragging = ref(false)
+let dragOffsetX = 0
+let dragOffsetY = 0
+
+const clamp = (val: number, min: number, max: number) => Math.min(max, Math.max(min, val))
+
+const getDragContext = () => {
+  const panelEl = panelRef.value
+  if (!panelEl) return null
+  const parentEl = panelEl.offsetParent as HTMLElement | null
+  if (!parentEl) return null
+  const parentRect = parentEl.getBoundingClientRect()
+  const scaleX = parentRect.width / parentEl.offsetWidth || 1
+  const scaleY = parentRect.height / parentEl.offsetHeight || 1
+  return { panelEl, parentEl, parentRect, scaleX, scaleY }
+}
+
+const placePanelToDefault = () => {
+  const panelWidth = panelRef.value?.offsetWidth ?? 280
+  const parentWidth = (panelRef.value?.offsetParent as HTMLElement | null)?.offsetWidth ?? window.innerWidth
+  panelLeft.value = Math.max(0, parentWidth - panelWidth - 20)
+  panelTop.value = 96
+}
+
+const onDragMove = (event: MouseEvent) => {
+  if (!isDragging.value) return
+  const ctx = getDragContext()
+  if (!ctx) return
+  const panelWidth = ctx.panelEl.offsetWidth
+  const panelHeight = ctx.panelEl.offsetHeight
+  const localX = (event.clientX - ctx.parentRect.left) / ctx.scaleX
+  const localY = (event.clientY - ctx.parentRect.top) / ctx.scaleY
+  const maxLeft = Math.max(0, ctx.parentEl.offsetWidth - panelWidth)
+  const maxTop = Math.max(0, ctx.parentEl.offsetHeight - panelHeight)
+  panelLeft.value = clamp(localX - dragOffsetX, 0, maxLeft)
+  panelTop.value = clamp(localY - dragOffsetY, 0, maxTop)
+}
+
+const stopDrag = () => {
+  isDragging.value = false
+}
+
+const startDrag = (event: MouseEvent) => {
+  const ctx = getDragContext()
+  if (!ctx) return
+  isDragging.value = true
+  const localX = (event.clientX - ctx.parentRect.left) / ctx.scaleX
+  const localY = (event.clientY - ctx.parentRect.top) / ctx.scaleY
+  dragOffsetX = localX - panelLeft.value
+  dragOffsetY = localY - panelTop.value
+}
+
+const onResize = () => {
+  const ctx = getDragContext()
+  if (!ctx) return
+  const panelWidth = ctx.panelEl.offsetWidth
+  const panelHeight = ctx.panelEl.offsetHeight
+  panelLeft.value = clamp(panelLeft.value, 0, Math.max(0, ctx.parentEl.offsetWidth - panelWidth))
+  panelTop.value = clamp(panelTop.value, 0, Math.max(0, ctx.parentEl.offsetHeight - panelHeight))
+}
 
 const editLocked = computed(() => props.dataSource === 'api' || props.apiLoading === true)
 
@@ -71,6 +134,19 @@ watch(
   { immediate: true },
 )
 
+onMounted(() => {
+  placePanelToDefault()
+  window.addEventListener('mousemove', onDragMove)
+  window.addEventListener('mouseup', stopDrag)
+  window.addEventListener('resize', onResize)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('mousemove', onDragMove)
+  window.removeEventListener('mouseup', stopDrag)
+  window.removeEventListener('resize', onResize)
+})
+
 watch(
   () => props.devices,
   (next) => {
@@ -95,8 +171,15 @@ const currentRecord = computed(() => {
 </script>
 
 <template>
-  <aside v-if="visible" class="cockpit-debug-panel">
-    <div class="cockpit-debug-panel__title">测试面板（F8）</div>
+  <aside
+    v-if="visible"
+    ref="panelRef"
+    class="cockpit-debug-panel"
+    :style="{ left: `${panelLeft}px`, top: `${panelTop}px` }"
+  >
+    <div class="cockpit-debug-panel__title cockpit-debug-panel__title--drag" @mousedown.prevent="startDrag">
+      测试面板（F8）
+    </div>
 
     <label class="cockpit-debug-panel__row">
       <span>数据来源</span>
@@ -254,7 +337,7 @@ const currentRecord = computed(() => {
 <style scoped>
 .cockpit-debug-panel {
   position: absolute;
-  right: 20px;
+  left: 0;
   top: 96px;
   z-index: 10;
   width: 280px;
@@ -268,6 +351,10 @@ const currentRecord = computed(() => {
   margin-bottom: 10px;
   font-size: 13px;
   color: #9fefff;
+}
+.cockpit-debug-panel__title--drag {
+  cursor: move;
+  user-select: none;
 }
 .cockpit-debug-panel__row {
   display: flex;
