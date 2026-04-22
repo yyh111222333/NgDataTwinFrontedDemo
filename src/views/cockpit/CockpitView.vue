@@ -7,9 +7,20 @@ import CockpitHeader from '@/components/cockpit/CockpitHeader.vue'
 import CockpitKpiStats from '@/components/cockpit/CockpitKpiStats.vue'
 import CockpitSceneMount from '@/components/cockpit/CockpitSceneMount.vue'
 import CockpitSidePanels from '@/components/cockpit/CockpitSidePanels.vue'
+import { getDashboardOverview, getDeviceStatusOptions } from '@/api/dashboard'
+import { useBackendHealth } from '@/composables/useBackendHealth'
 import { bottomMenus, middleStats, panels } from '@/config/cockpit'
 import CockpitShell from '@/layouts/CockpitShell.vue'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import type {
+  DashboardDeviceRecord,
+  DashboardOverviewData,
+  DeviceStatusOption,
+  DeviceStatusOptionsData,
+  RailStatus,
+} from '@/types/dashboard'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+
+const { backendOnline, healthError } = useBackendHealth()
 
 // 从统一配置里拆出左右两列，模板里直接使用
 const leftPanels = panels.filter((panel) => panel.side === 'left')
@@ -20,21 +31,22 @@ const dateText = ref('')
 const timeText = ref('')
 const weekText = ref('')
 const showDebugPanel = ref(false)
-const onlineAccess = ref(Number(middleStats[0]?.value ?? 0))
-const areaTotal = ref(Number(middleStats[1]?.value ?? 0))
-const vehiclesOnSite = ref(Number(middleStats[2]?.value ?? 0))
-const railStatus = ref<'空闲' | '占用'>(middleStats[3]?.value === '占用' ? '占用' : '空闲')
+const dataSource = ref<'mock' | 'api'>('mock')
+const apiLoading = ref(false)
+const apiError = ref<string | null>(null)
 
-const runtimeKpiStats = computed(() => [
-  { value: String(onlineAccess.value), label: '在线门禁' },
-  { value: String(areaTotal.value), label: '区域总人数' },
-  { value: String(vehiclesOnSite.value), label: '车辆在场' },
-  { value: railStatus.value, label: '火车道状态' },
-])
+type DashboardViewState = {
+  onlineAccess: number
+  areaTotal: number
+  vehiclesOnSite: number
+  railStatus: RailStatus
+  deviceRegions: string[]
+  deviceTypes: string[]
+  deviceRecords: DashboardDeviceRecord[]
+}
 
-// 定义了一个 8 个区域 × 8 种设备 = 64 条记录的数据结构，每条记录包含在线/离线数量
-const deviceRegions: string[] = ['A区', 'F区', 'L区', '成品库', '火车道', '道路', '厂房', '作业区']
-const deviceTypes: string[] = [
+const INITIAL_DEVICE_REGIONS: string[] = ['A区', 'F区', 'L区', '成品库', '火车道', '道路', '厂房', '作业区']
+const INITIAL_DEVICE_TYPES: string[] = [
   '人员智能门/联锁门',
   '车辆识别与道闸',
   '火车道联动门',
@@ -44,22 +56,172 @@ const deviceTypes: string[] = [
   '烟感器',
   '温感器',
 ]
-type DeviceStatRecord = {
-  region: string
-  device: string
-  online: number
-  offline: number
-}
-const deviceRecords = ref<DeviceStatRecord[]>(
-  deviceRegions.flatMap((region) =>
-    deviceTypes.map((device) => ({
+
+const buildInitialRecords = (regions: string[], devices: string[]) =>
+  regions.flatMap((region) =>
+    devices.map((device) => ({
       region,
       device,
       online: 8,
       offline: 1,
     })),
-  ),
-)
+  )
+
+const createInitialState = (): DashboardViewState => ({
+  onlineAccess: Number(middleStats[0]?.value ?? 0),
+  areaTotal: Number(middleStats[1]?.value ?? 0),
+  vehiclesOnSite: Number(middleStats[2]?.value ?? 0),
+  railStatus: middleStats[3]?.value === '占用' ? '占用' : '空闲',
+  deviceRegions: [...INITIAL_DEVICE_REGIONS],
+  deviceTypes: [...INITIAL_DEVICE_TYPES],
+  deviceRecords: buildInitialRecords(INITIAL_DEVICE_REGIONS, INITIAL_DEVICE_TYPES),
+})
+
+const cloneState = (state: DashboardViewState): DashboardViewState => ({
+  onlineAccess: state.onlineAccess,
+  areaTotal: state.areaTotal,
+  vehiclesOnSite: state.vehiclesOnSite,
+  railStatus: state.railStatus,
+  deviceRegions: [...state.deviceRegions],
+  deviceTypes: [...state.deviceTypes],
+  deviceRecords: state.deviceRecords.map((it) => ({ ...it })),
+})
+
+const currentState = ref<DashboardViewState>(createInitialState())
+const mockState = ref<DashboardViewState>(createInitialState())
+
+const runtimeKpiStats = computed(() => [
+  { value: String(currentState.value.onlineAccess), label: '在线门禁' },
+  { value: String(currentState.value.areaTotal), label: '区域总人数' },
+  { value: String(currentState.value.vehiclesOnSite), label: '车辆在场' },
+  { value: currentState.value.railStatus, label: '火车道状态' },
+])
+
+const regionOptions = ref<DeviceStatusOption[]>([])
+const deviceOptions = ref<DeviceStatusOption[]>([])
+const selectedRegionId = ref('all')
+const selectedDeviceType = ref('all')
+
+const applyOverviewData = (data: DashboardOverviewData) => {
+  currentState.value = {
+    onlineAccess: data.onlineAccess,
+    areaTotal: data.areaTotal,
+    vehiclesOnSite: data.vehiclesOnSite,
+    railStatus: data.railStatus,
+    deviceRegions: [...data.deviceRegions],
+    deviceTypes: [...data.deviceTypes],
+    deviceRecords: data.deviceRecords.map((r) => ({ ...r })),
+  }
+}
+
+const rebuildRecordsByDimensions = (
+  regions: string[],
+  devices: string[],
+  sourceRecords: DashboardDeviceRecord[],
+) => {
+  const map = new Map(sourceRecords.map((it) => [`${it.region}@@${it.device}`, it]))
+  return regions.flatMap((region) =>
+    devices.map((device) => {
+      const cached = map.get(`${region}@@${device}`)
+      return cached ? { ...cached } : { region, device, online: 8, offline: 1 }
+    }),
+  )
+}
+
+const projectMockToCurrent = () => {
+  currentState.value = cloneState(mockState.value)
+}
+
+const withAllOption = (items: DeviceStatusOption[]) => {
+  const allExists = items.some((it) => it.id === 'all')
+  if (allExists) return items
+  return [{ id: 'all', name: '全部' }, ...items]
+}
+
+const applyOptionsData = (data: DeviceStatusOptionsData) => {
+  regionOptions.value = withAllOption(data.regions)
+  deviceOptions.value = withAllOption(data.deviceTypes)
+}
+
+const initMockOptions = () => {
+  regionOptions.value = [{ id: 'all', name: '全部' }, ...mockState.value.deviceRegions.map((name) => ({ id: name, name }))]
+  deviceOptions.value = [{ id: 'all', name: '全部' }, ...mockState.value.deviceTypes.map((name) => ({ id: name, name }))]
+  selectedRegionId.value = 'all'
+  selectedDeviceType.value = 'all'
+}
+
+const loadDeviceStatusOptions = async (regionId: string) => {
+  apiError.value = null
+  try {
+    const data = await getDeviceStatusOptions(regionId)
+    applyOptionsData(data)
+  } catch (e) {
+    apiError.value = e instanceof Error ? e.message : String(e)
+  }
+}
+
+const loadDashboardFromApi = async () => {
+  apiLoading.value = true
+  apiError.value = null
+  try {
+    const data = await getDashboardOverview()
+    applyOverviewData(data)
+  } catch (e) {
+    apiError.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    apiLoading.value = false
+  }
+}
+
+let overviewRefreshTimer: number | null = null
+
+const startOverviewAutoRefresh = () => {
+  if (overviewRefreshTimer !== null) return
+  overviewRefreshTimer = window.setInterval(() => {
+    if (dataSource.value === 'api') {
+      void loadDashboardFromApi()
+    }
+  }, 30_000)
+}
+
+const stopOverviewAutoRefresh = () => {
+  if (overviewRefreshTimer !== null) {
+    window.clearInterval(overviewRefreshTimer)
+    overviewRefreshTimer = null
+  }
+}
+
+const enterApiMode = async () => {
+  selectedRegionId.value = 'all'
+  selectedDeviceType.value = 'all'
+  await loadDeviceStatusOptions('all')
+  await loadDashboardFromApi()
+  startOverviewAutoRefresh()
+}
+
+const handleRegionChange = async (newRegionId: string) => {
+  selectedRegionId.value = newRegionId
+  if (dataSource.value !== 'api') return
+  selectedDeviceType.value = 'all'
+  await loadDeviceStatusOptions(newRegionId)
+  await loadDashboardFromApi()
+}
+
+const handleDeviceChange = async (newDeviceType: string) => {
+  selectedDeviceType.value = newDeviceType
+  if (dataSource.value !== 'api') return
+  await loadDashboardFromApi()
+}
+
+watch(dataSource, (mode) => {
+  if (mode === 'api') {
+    void enterApiMode()
+    return
+  }
+  stopOverviewAutoRefresh()
+  projectMockToCurrent()
+  initMockOptions()
+})
 
 let clockTimer: number | null = null
 let debugKeyHandler: ((e: KeyboardEvent) => void) | null = null
@@ -97,6 +259,7 @@ onMounted(() => {
     }
   }
   window.addEventListener('keydown', debugKeyHandler)
+  initMockOptions()
 })
 
 onBeforeUnmount(() => {
@@ -108,6 +271,7 @@ onBeforeUnmount(() => {
     window.removeEventListener('keydown', debugKeyHandler)
     debugKeyHandler = null
   }
+  stopOverviewAutoRefresh()
 })
 
 // 底部菜单当前激活项
@@ -120,18 +284,85 @@ const handleBottomMenuClick = (item: (typeof bottomMenus)[number]) => {
 }
 
 // 在设备数据数组中，找到"某区域 + 某设备"的那条记录，然后用新数据替换它
-const handleDeviceRecordUpdate = (payload: DeviceStatRecord) => {
-  const idx = deviceRecords.value.findIndex(
+const handleDeviceRecordUpdate = (payload: DashboardDeviceRecord) => {
+  if (dataSource.value === 'api') return
+  const idx = mockState.value.deviceRecords.findIndex(
     (it) => it.region === payload.region && it.device === payload.device,
   )
-  if (idx >= 0) deviceRecords.value[idx] = payload
+  if (idx >= 0) {
+    const next = mockState.value.deviceRecords.map((it, i) => (i === idx ? { ...payload } : { ...it }))
+    mockState.value = { ...mockState.value, deviceRecords: next }
+    if (dataSource.value === 'mock') {
+      projectMockToCurrent()
+    }
+  }
+}
+
+const handleMockRegionsUpdate = (nextRegions: string[]) => {
+  const nextRecords = rebuildRecordsByDimensions(
+    nextRegions,
+    mockState.value.deviceTypes,
+    mockState.value.deviceRecords,
+  )
+  mockState.value = {
+    ...mockState.value,
+    deviceRegions: [...nextRegions],
+    deviceRecords: nextRecords,
+  }
+  initMockOptions()
+  if (dataSource.value === 'mock') projectMockToCurrent()
+}
+
+const handleMockDevicesUpdate = (nextDevices: string[]) => {
+  const nextRecords = rebuildRecordsByDimensions(
+    mockState.value.deviceRegions,
+    nextDevices,
+    mockState.value.deviceRecords,
+  )
+  mockState.value = {
+    ...mockState.value,
+    deviceTypes: [...nextDevices],
+    deviceRecords: nextRecords,
+  }
+  initMockOptions()
+  if (dataSource.value === 'mock') projectMockToCurrent()
+}
+
+const handleMockOnlineAccessUpdate = (value: number) => {
+  if (dataSource.value === 'api') return
+  mockState.value = { ...mockState.value, onlineAccess: value }
+  projectMockToCurrent()
+}
+
+const handleMockAreaTotalUpdate = (value: number) => {
+  if (dataSource.value === 'api') return
+  mockState.value = { ...mockState.value, areaTotal: value }
+  projectMockToCurrent()
+}
+
+const handleMockVehiclesOnSiteUpdate = (value: number) => {
+  if (dataSource.value === 'api') return
+  mockState.value = { ...mockState.value, vehiclesOnSite: value }
+  projectMockToCurrent()
+}
+
+const handleMockRailStatusUpdate = (value: RailStatus) => {
+  if (dataSource.value === 'api') return
+  mockState.value = { ...mockState.value, railStatus: value }
+  projectMockToCurrent()
 }
 </script>
 
 <template>
   <CockpitShell>
     <div class="cockpit">
-      <CockpitHeader :date-text="dateText" :time-text="timeText" :week-text="weekText" />
+      <CockpitHeader
+        :date-text="dateText"
+        :time-text="timeText"
+        :week-text="weekText"
+        :backend-online="backendOnline"
+        :backend-health-hint="healthError"
+      />
 
       <div class="cockpit__body">
         <CockpitSceneMount />
@@ -139,27 +370,37 @@ const handleDeviceRecordUpdate = (payload: DeviceStatRecord) => {
           <!-- 向父组件的 CockpitPanelCard 中，指定一个名为 left-device 的插槽内容 -->
           <template #left-device>
             <CockpitDeviceStatus
-              :records="deviceRecords"
-              :regions="deviceRegions"
-              :devices="deviceTypes"
+              :records="currentState.deviceRecords"
+              :region-options="regionOptions"
+              :device-options="deviceOptions"
+              v-model:selected-region-id="selectedRegionId"
+              v-model:selected-device-type="selectedDeviceType"
+              @region-change="handleRegionChange"
+              @device-change="handleDeviceChange"
             />
           </template>
           <CockpitKpiStats :items="runtimeKpiStats" />
         </CockpitSidePanels>
         <CockpitDebugPanel
           :visible="showDebugPanel"
-          :online-access="onlineAccess"
-          :area-total="areaTotal"
-          :vehicles-on-site="vehiclesOnSite"
-          :rail-status="railStatus"
-          :regions="deviceRegions"
-          :devices="deviceTypes"
-          :records="deviceRecords"
-          @update:online-access="onlineAccess = $event"
-          @update:area-total="areaTotal = $event"
-          @update:vehicles-on-site="vehiclesOnSite = $event"
-          @update:rail-status="railStatus = $event"
+          v-model:data-source="dataSource"
+          :api-loading="apiLoading"
+          :api-error="apiError"
+          :online-access="currentState.onlineAccess"
+          :area-total="currentState.areaTotal"
+          :vehicles-on-site="currentState.vehiclesOnSite"
+          :rail-status="currentState.railStatus"
+          :regions="currentState.deviceRegions"
+          :devices="currentState.deviceTypes"
+          :records="currentState.deviceRecords"
+          @update:regions="handleMockRegionsUpdate"
+          @update:devices="handleMockDevicesUpdate"
+          @update:online-access="handleMockOnlineAccessUpdate"
+          @update:area-total="handleMockAreaTotalUpdate"
+          @update:vehicles-on-site="handleMockVehiclesOnSiteUpdate"
+          @update:rail-status="handleMockRailStatusUpdate"
           @update:record="handleDeviceRecordUpdate"
+          @refresh="loadDashboardFromApi"
         />
       </div>
       <CockpitBottomNav

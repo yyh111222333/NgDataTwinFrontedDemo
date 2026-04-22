@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import VChart from 'vue-echarts'
 import { PieChart } from 'echarts/charts'
 import { TooltipComponent, LegendComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { use } from 'echarts/core'
+import type { DeviceStatusOption } from '@/types/dashboard'
 
 use([PieChart, TooltipComponent, LegendComponent, CanvasRenderer])
 
@@ -17,17 +18,43 @@ export type DeviceStatRecord = {
 
 const props = defineProps<{
   records: DeviceStatRecord[]
-  regions: string[]
-  devices: string[]
+  regionOptions: DeviceStatusOption[]
+  deviceOptions: DeviceStatusOption[]
+  selectedRegionId: string
+  selectedDeviceType: string
 }>()
 
-const selectedRegion = ref('全部')
-const selectedDevice = ref('全部')
+const emit = defineEmits<{
+  (e: 'update:selectedRegionId', value: string): void
+  (e: 'update:selectedDeviceType', value: string): void
+  (e: 'region-change', value: string): void
+  (e: 'device-change', value: string): void
+}>()
+
+const selectedRegionName = computed(() => {
+  return props.regionOptions.find((it) => it.id === props.selectedRegionId)?.name ?? '全部'
+})
+
+const selectedDeviceName = computed(() => {
+  return props.deviceOptions.find((it) => it.id === props.selectedDeviceType)?.name ?? '全部'
+})
+
+const onRegionSelect = (event: Event) => {
+  const value = (event.target as HTMLSelectElement).value
+  emit('update:selectedRegionId', value)
+  emit('region-change', value)
+}
+
+const onDeviceSelect = (event: Event) => {
+  const value = (event.target as HTMLSelectElement).value
+  emit('update:selectedDeviceType', value)
+  emit('device-change', value)
+}
 
 const filteredRecords = computed(() =>
   props.records.filter((item) => {
-    const regionOk = selectedRegion.value === '全部' || item.region === selectedRegion.value
-    const deviceOk = selectedDevice.value === '全部' || item.device === selectedDevice.value
+    const regionOk = props.selectedRegionId === 'all' || item.region === selectedRegionName.value
+    const deviceOk = props.selectedDeviceType === 'all' || item.device === selectedDeviceName.value
     return regionOk && deviceOk
   }),
 )
@@ -64,13 +91,21 @@ const pieOption = computed(() => ({
 <template>
   <div class="device-status">
     <div class="device-status__filters">
-      <select v-model="selectedRegion">
-        <option value="全部">区域（全部）</option>
-        <option v-for="region in regions" :key="region" :value="region">{{ region }}</option>
+      <select
+        :value="selectedRegionId"
+        @change="onRegionSelect"
+      >
+        <option v-for="region in regionOptions" :key="region.id" :value="region.id">
+          {{ region.name }}
+        </option>
       </select>
-      <select v-model="selectedDevice">
-        <option value="全部">设备（全部）</option>
-        <option v-for="device in devices" :key="device" :value="device">{{ device }}</option>
+      <select
+        :value="selectedDeviceType"
+        @change="onDeviceSelect"
+      >
+        <option v-for="device in deviceOptions" :key="device.id" :value="device.id">
+          {{ device.name }}
+        </option>
       </select>
     </div>
 

@@ -1,31 +1,33 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import type { DashboardDeviceRecord, RailStatus } from '@/types/dashboard'
+import { computed, ref, watch } from 'vue'
 
-type StatusValue = '空闲' | '占用'
-type DeviceStatRecord = {
-  region: string
-  device: string
-  online: number
-  offline: number
-}
+export type CockpitDataSource = 'mock' | 'api'
 
 const props = defineProps<{
   visible: boolean
+  dataSource: CockpitDataSource
+  apiLoading?: boolean
+  apiError?: string | null
   onlineAccess: number
   areaTotal: number
   vehiclesOnSite: number
-  railStatus: StatusValue
+  railStatus: RailStatus
   regions: string[]
   devices: string[]
-  records: DeviceStatRecord[]
+  records: DashboardDeviceRecord[]
 }>()
 
 const emit = defineEmits<{
+  (e: 'update:dataSource', value: CockpitDataSource): void
+  (e: 'refresh'): void
+  (e: 'update:regions', value: string[]): void
+  (e: 'update:devices', value: string[]): void
   (e: 'update:onlineAccess', value: number): void
   (e: 'update:areaTotal', value: number): void
   (e: 'update:vehiclesOnSite', value: number): void
-  (e: 'update:railStatus', value: StatusValue): void
-  (e: 'update:record', payload: DeviceStatRecord): void
+  (e: 'update:railStatus', value: RailStatus): void
+  (e: 'update:record', payload: DashboardDeviceRecord): void
 }>()
 
 const toNum = (v: string) => {
@@ -35,6 +37,50 @@ const toNum = (v: string) => {
 
 const selectedRegion = ref('A区')
 const selectedDevice = ref('人员智能门/联锁门')
+const regionDraft = ref('')
+const deviceDraft = ref('')
+
+const editLocked = computed(() => props.dataSource === 'api' || props.apiLoading === true)
+
+const formatList = (items: string[]) => items.join(', ')
+
+const parseList = (raw: string) =>
+  raw
+    .split(/[,，]/)
+    .map((it) => it.trim())
+    .filter((it, idx, arr) => it.length > 0 && arr.indexOf(it) === idx)
+
+const applyRegionDraft = () => {
+  const parsed = parseList(regionDraft.value)
+  if (parsed.length > 0) emit('update:regions', parsed)
+}
+
+const applyDeviceDraft = () => {
+  const parsed = parseList(deviceDraft.value)
+  if (parsed.length > 0) emit('update:devices', parsed)
+}
+
+watch(
+  () => props.regions,
+  (next) => {
+    regionDraft.value = formatList(next)
+    if (!next.includes(selectedRegion.value)) {
+      selectedRegion.value = next[0] ?? ''
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => props.devices,
+  (next) => {
+    deviceDraft.value = formatList(next)
+    if (!next.includes(selectedDevice.value)) {
+      selectedDevice.value = next[0] ?? ''
+    }
+  },
+  { immediate: true },
+)
 
 const currentRecord = computed(() => {
   return (
@@ -53,11 +99,42 @@ const currentRecord = computed(() => {
     <div class="cockpit-debug-panel__title">测试面板（F8）</div>
 
     <label class="cockpit-debug-panel__row">
+      <span>数据来源</span>
+      <select
+        class="cockpit-debug-panel__select-wide"
+        :value="dataSource"
+        :disabled="apiLoading"
+        @change="emit('update:dataSource', ($event.target as HTMLSelectElement).value as CockpitDataSource)"
+      >
+        <option value="mock">本地模拟</option>
+        <option value="api">接口</option>
+      </select>
+    </label>
+
+    <p v-if="apiError" class="cockpit-debug-panel__error">{{ apiError }}</p>
+
+    <div v-if="dataSource === 'api'" class="cockpit-debug-panel__row cockpit-debug-panel__row--actions">
+      <button
+        type="button"
+        class="cockpit-debug-panel__btn"
+        :disabled="apiLoading"
+        @click="emit('refresh')"
+      >
+        {{ apiLoading ? '拉取中…' : '重新拉取' }}
+      </button>
+    </div>
+
+    <div class="cockpit-debug-panel__split"></div>
+    <div class="cockpit-debug-panel__title">概览数值</div>
+    <p v-if="editLocked" class="cockpit-debug-panel__hint">接口模式下为只读</p>
+
+    <label class="cockpit-debug-panel__row">
       <span>在线门禁</span>
       <input
         type="number"
         :value="onlineAccess"
         min="0"
+        :disabled="editLocked"
         @input="emit('update:onlineAccess', toNum(($event.target as HTMLInputElement).value))"
       />
     </label>
@@ -68,6 +145,7 @@ const currentRecord = computed(() => {
         type="number"
         :value="areaTotal"
         min="0"
+        :disabled="editLocked"
         @input="emit('update:areaTotal', toNum(($event.target as HTMLInputElement).value))"
       />
     </label>
@@ -78,6 +156,7 @@ const currentRecord = computed(() => {
         type="number"
         :value="vehiclesOnSite"
         min="0"
+        :disabled="editLocked"
         @input="emit('update:vehiclesOnSite', toNum(($event.target as HTMLInputElement).value))"
       />
     </label>
@@ -86,7 +165,8 @@ const currentRecord = computed(() => {
       <span>火车道状态</span>
       <select
         :value="railStatus"
-        @change="emit('update:railStatus', ($event.target as HTMLSelectElement).value as StatusValue)"
+        :disabled="editLocked"
+        @change="emit('update:railStatus', ($event.target as HTMLSelectElement).value as RailStatus)"
       >
         <option value="空闲">空闲（绿色）</option>
         <option value="占用">占用（红色）</option>
@@ -95,17 +175,40 @@ const currentRecord = computed(() => {
 
     <div class="cockpit-debug-panel__split"></div>
     <div class="cockpit-debug-panel__title">设备状态测试数据</div>
+    <p v-if="!editLocked" class="cockpit-debug-panel__hint">区域/设备可手动编辑，英文或中文逗号分隔</p>
+
+    <label class="cockpit-debug-panel__row">
+      <span>区域列表</span>
+      <input
+        v-model="regionDraft"
+        class="cockpit-debug-panel__input-wide"
+        type="text"
+        :disabled="editLocked"
+        @blur="applyRegionDraft"
+      />
+    </label>
+
+    <label class="cockpit-debug-panel__row">
+      <span>设备列表</span>
+      <input
+        v-model="deviceDraft"
+        class="cockpit-debug-panel__input-wide"
+        type="text"
+        :disabled="editLocked"
+        @blur="applyDeviceDraft"
+      />
+    </label>
 
     <label class="cockpit-debug-panel__row">
       <span>区域</span>
-      <select v-model="selectedRegion">
+      <select v-model="selectedRegion" class="cockpit-debug-panel__select-wide" :disabled="editLocked">
         <option v-for="region in regions" :key="region" :value="region">{{ region }}</option>
       </select>
     </label>
 
     <label class="cockpit-debug-panel__row">
       <span>设备</span>
-      <select v-model="selectedDevice">
+      <select v-model="selectedDevice" class="cockpit-debug-panel__select-wide" :disabled="editLocked">
         <option v-for="device in devices" :key="device" :value="device">{{ device }}</option>
       </select>
     </label>
@@ -116,6 +219,7 @@ const currentRecord = computed(() => {
         type="number"
         :value="currentRecord.online"
         min="0"
+        :disabled="editLocked"
         @input="
           emit('update:record', {
             region: selectedRegion,
@@ -133,6 +237,7 @@ const currentRecord = computed(() => {
         type="number"
         :value="currentRecord.offline"
         min="0"
+        :disabled="editLocked"
         @input="
           emit('update:record', {
             region: selectedRegion,
@@ -171,6 +276,9 @@ const currentRecord = computed(() => {
   margin-top: 8px;
   gap: 12px;
 }
+.cockpit-debug-panel__row--actions {
+  justify-content: flex-end;
+}
 .cockpit-debug-panel__row span {
   color: rgba(220, 245, 255, 0.9);
   font-size: 12px;
@@ -187,9 +295,39 @@ const currentRecord = computed(() => {
   padding: 0 8px;
   outline: none;
 }
+.cockpit-debug-panel__select-wide {
+  width: 160px !important;
+}
+.cockpit-debug-panel__input-wide {
+  width: 160px !important;
+}
+.cockpit-debug-panel__btn {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid rgba(48, 220, 255, 0.45);
+  border-radius: 4px;
+  background: rgba(12, 48, 72, 0.95);
+  color: #c8f4ff;
+  font-size: 12px;
+  cursor: pointer;
+}
+.cockpit-debug-panel__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.cockpit-debug-panel__hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: rgba(180, 230, 255, 0.75);
+}
+.cockpit-debug-panel__error {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #ff9b9b;
+}
 .cockpit-debug-panel__split {
   margin-top: 10px;
   border-top: 1px dashed rgba(48, 220, 255, 0.25);
 }
 </style>
-

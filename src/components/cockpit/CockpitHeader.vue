@@ -4,6 +4,9 @@ defineProps<{
   dateText: string
   timeText: string
   weekText: string
+  /** null：首次检测前；true/false：GET /health 结果 */
+  backendOnline?: boolean | null
+  backendHealthHint?: string | null
 }>()
 </script>
 
@@ -64,6 +67,19 @@ defineProps<{
     </div>
     <!-- 右上操作区 -->
     <div class="cockpit-header__actions">
+      <div class="cockpit-header__health">
+        <span 
+        class="cockpit-header__health-dot"
+        :class="{
+          'is-unknown': backendOnline === null,
+          'is-online': backendOnline === true,
+          'is-offline': backendOnline === false,
+        }"
+      />
+      <span class="cockpit-header__health-text">
+        {{ backendOnline === null ? '检测中' : backendOnline ? '服务在线' : '服务离线' }}
+      </span>
+    </div>
       <span class="cockpit-header__admin-placeholder">admin登录</span>
       <button class="cockpit-header__msg-btn" type="button" aria-label="消息占位">
         <img src="@/assets/icon-massage.png" alt="消息" />
@@ -78,7 +94,13 @@ defineProps<{
 .cockpit-header__time { position: absolute; left: 32px; top: 30px; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .cockpit-header__time span { color: #c4f3fe; font-size: 14px; line-height: 1.1; }
 .cockpit-header__brand { position: absolute; left: 50%; top: 0; transform: translateX(-50%); width: min(1920px, 100%); height: 90px; text-align: center; box-sizing: border-box; padding-top: 10px; background: url('@/assets/header-bg.png') no-repeat center center; background-size: 100% 100%; }
-.cockpit-header__actions { position: absolute; right: 28px; top: 35px; z-index: 2; display: flex; align-items: center; gap: 25px; }
+.cockpit-header__actions { position: absolute; right: 28px; top: 35px; z-index: 2; display: flex; align-items: center; gap: 18px; }
+.cockpit-header__health { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(196, 243, 254, 0.9); user-select: none; }
+.cockpit-header__health-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background-color: #cccccc; }
+.cockpit-header__health-dot.is-online { background-color: #00ff00; }
+.cockpit-header__health-dot.is-offline { background-color: #ff0000; }
+.cockpit-header__health-dot.is-unknown { background-color: #cccccc; }
+.cockpit-header__health-text { white-space: nowrap; }
 .cockpit-header__admin-placeholder { font-size: 14px; color: #c4f3fe; }
 .cockpit-header__msg-btn { width: 30px; height: 30px; border: 1px solid rgba(48, 220, 255, 0.35); border-radius: 50%; background: rgba(48, 220, 255, 0.08); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
 .cockpit-header__msg-btn img { width: 15px; height: 15px; object-fit: contain; }
