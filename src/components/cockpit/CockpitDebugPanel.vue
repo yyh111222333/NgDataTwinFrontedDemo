@@ -13,6 +13,7 @@ const props = defineProps<{
   areaTotal: number
   vehiclesOnSite: number
   railStatus: RailStatus
+  doorOpen: boolean
   regions: string[]
   devices: string[]
   records: DashboardDeviceRecord[]
@@ -27,6 +28,7 @@ const emit = defineEmits<{
   (e: 'update:areaTotal', value: number): void
   (e: 'update:vehiclesOnSite', value: number): void
   (e: 'update:railStatus', value: RailStatus): void
+  (e: 'update:doorOpen', value: boolean): void
   (e: 'update:record', payload: DashboardDeviceRecord): void
 }>()
 
@@ -253,6 +255,18 @@ const currentRecord = computed(() => {
       >
         <option value="空闲">空闲（绿色）</option>
         <option value="占用">占用（红色）</option>
+      </select>
+    </label>
+
+    <label class="cockpit-debug-panel__row">
+      <span>门状态</span>
+      <select
+        :value="doorOpen ? 'open' : 'closed'"
+        :disabled="editLocked"
+        @change="emit('update:doorOpen', ($event.target as HTMLSelectElement).value === 'open')"
+      >
+        <option value="closed">关门</option>
+        <option value="open">开门</option>
       </select>
     </label>
 

@@ -40,6 +40,7 @@ type DashboardViewState = {
   areaTotal: number
   vehiclesOnSite: number
   railStatus: RailStatus
+  doorOpen: boolean
   deviceRegions: string[]
   deviceTypes: string[]
   deviceRecords: DashboardDeviceRecord[]
@@ -72,6 +73,7 @@ const createInitialState = (): DashboardViewState => ({
   areaTotal: Number(middleStats[1]?.value ?? 0),
   vehiclesOnSite: Number(middleStats[2]?.value ?? 0),
   railStatus: middleStats[3]?.value === '占用' ? '占用' : '空闲',
+  doorOpen: false,
   deviceRegions: [...INITIAL_DEVICE_REGIONS],
   deviceTypes: [...INITIAL_DEVICE_TYPES],
   deviceRecords: buildInitialRecords(INITIAL_DEVICE_REGIONS, INITIAL_DEVICE_TYPES),
@@ -82,6 +84,7 @@ const cloneState = (state: DashboardViewState): DashboardViewState => ({
   areaTotal: state.areaTotal,
   vehiclesOnSite: state.vehiclesOnSite,
   railStatus: state.railStatus,
+  doorOpen: state.doorOpen,
   deviceRegions: [...state.deviceRegions],
   deviceTypes: [...state.deviceTypes],
   deviceRecords: state.deviceRecords.map((it) => ({ ...it })),
@@ -108,6 +111,7 @@ const applyOverviewData = (data: DashboardOverviewData) => {
     areaTotal: data.areaTotal,
     vehiclesOnSite: data.vehiclesOnSite,
     railStatus: data.railStatus,
+    doorOpen: currentState.value.doorOpen,
     deviceRegions: [...data.deviceRegions],
     deviceTypes: [...data.deviceTypes],
     deviceRecords: data.deviceRecords.map((r) => ({ ...r })),
@@ -351,6 +355,12 @@ const handleMockRailStatusUpdate = (value: RailStatus) => {
   mockState.value = { ...mockState.value, railStatus: value }
   projectMockToCurrent()
 }
+
+const handleMockDoorOpenUpdate = (value: boolean) => {
+  if (dataSource.value === 'api') return
+  mockState.value = { ...mockState.value, doorOpen: value }
+  projectMockToCurrent()
+}
 </script>
 
 <template>
@@ -365,7 +375,7 @@ const handleMockRailStatusUpdate = (value: RailStatus) => {
       />
 
       <div class="cockpit__body">
-        <CockpitSceneMount />
+        <CockpitSceneMount :door-open="currentState.doorOpen" />
         <CockpitSidePanels :left-panels="leftPanels" :right-panels="rightPanels">
           <!-- 向父组件的 CockpitPanelCard 中，指定一个名为 left-device 的插槽内容 -->
           <template #left-device>
@@ -390,6 +400,7 @@ const handleMockRailStatusUpdate = (value: RailStatus) => {
           :area-total="currentState.areaTotal"
           :vehicles-on-site="currentState.vehiclesOnSite"
           :rail-status="currentState.railStatus"
+          :door-open="currentState.doorOpen"
           :regions="currentState.deviceRegions"
           :devices="currentState.deviceTypes"
           :records="currentState.deviceRecords"
@@ -399,6 +410,7 @@ const handleMockRailStatusUpdate = (value: RailStatus) => {
           @update:area-total="handleMockAreaTotalUpdate"
           @update:vehicles-on-site="handleMockVehiclesOnSiteUpdate"
           @update:rail-status="handleMockRailStatusUpdate"
+          @update:door-open="handleMockDoorOpenUpdate"
           @update:record="handleDeviceRecordUpdate"
           @refresh="loadDashboardFromApi"
         />
