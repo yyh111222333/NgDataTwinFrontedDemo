@@ -9,6 +9,7 @@ import type { DeviceStatusOption } from '@/types/dashboard'
 
 use([PieChart, TooltipComponent, LegendComponent, CanvasRenderer])
 
+// 设备状态卡片：按“区域 + 设备类型”过滤记录，并汇总在线率饼图。
 export type DeviceStatRecord = {
   region: string
   device: string

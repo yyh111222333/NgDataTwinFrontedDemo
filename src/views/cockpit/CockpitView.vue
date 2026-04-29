@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// 页面组装层：只负责拼装组件、管理页面级状态（时间、底部激活项、跳转）
+// 页面组装层：负责状态编排与组件组装，不承载具体图形动画细节。
 import CockpitBottomNav from '@/components/cockpit/CockpitBottomNav.vue'
 import CockpitDeviceStatus from '@/components/cockpit/CockpitDeviceStatus.vue'
 import CockpitDebugPanel from '@/components/cockpit/CockpitDebugPanel.vue'
@@ -11,6 +11,8 @@ import { getDashboardOverview, getDeviceStatusOptions } from '@/api/dashboard'
 import { useBackendHealth } from '@/composables/useBackendHealth'
 import { bottomMenus, middleStats, panels } from '@/config/cockpit'
 import CockpitShell from '@/layouts/CockpitShell.vue'
+import demoSvgRaw from '@/assets/demo.svg?raw'
+import type { DoorFlowDirection } from '@/components/cockpit/CockpitDebugPanel.vue'
 import type {
   DashboardDeviceRecord,
   DashboardOverviewData,
@@ -21,6 +23,33 @@ import type {
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 const { backendOnline, healthError } = useBackendHealth()
+
+// 从 SVG 元素 id 推断门 id（去掉可动部件后缀，保留门级标识）。
+const extractDoorIdsFromSvg = (svgRaw: string): string[] => {
+  const idRegex = /\sid="([^"]+)"/g
+  const out = new Set<string>()
+  let m: RegExpExecArray | null = null
+  while ((m = idRegex.exec(svgRaw)) !== null) {
+    const id = m[1] ?? ''
+    const normalized = id
+      .replace(/_route_\d+$/i, '')
+      .replace(/_rotor_\d+$/i, '')
+      .replace(/_leaf$/i, '')
+      .replace(/_pivot$/i, '')
+      .replace(/_static(?:-\d+)?$/i, '')
+    if (normalized.startsWith('door_') || normalized.startsWith('gate_')) {
+      out.add(normalized)
+    }
+  }
+  return Array.from(out)
+}
+
+const MOCK_DOOR_IDS = extractDoorIdsFromSvg(demoSvgRaw)
+const DEFAULT_DOOR_ID = MOCK_DOOR_IDS[0] ?? 'gate_tripod_A_01'
+const createDoorStateMap = (value: boolean) =>
+  Object.fromEntries(MOCK_DOOR_IDS.map((id) => [id, value])) as Record<string, boolean>
+const createDoorFlowDirectionMap = (value: DoorFlowDirection) =>
+  Object.fromEntries(MOCK_DOOR_IDS.map((id) => [id, value])) as Record<string, DoorFlowDirection>
 
 // 从统一配置里拆出左右两列，模板里直接使用
 const leftPanels = panels.filter((panel) => panel.side === 'left')
@@ -40,12 +69,15 @@ type DashboardViewState = {
   areaTotal: number
   vehiclesOnSite: number
   railStatus: RailStatus
-  doorOpen: boolean
+  selectedDoorId: string
+  doorStates: Record<string, boolean>
+  doorFlowDirections: Record<string, DoorFlowDirection>
   deviceRegions: string[]
   deviceTypes: string[]
   deviceRecords: DashboardDeviceRecord[]
 }
 
+// mock 模式下的默认维度和默认统计基线。
 const INITIAL_DEVICE_REGIONS: string[] = ['A区', 'F区', 'L区', '成品库', '火车道', '道路', '厂房', '作业区']
 const INITIAL_DEVICE_TYPES: string[] = [
   '人员智能门/联锁门',
@@ -73,18 +105,23 @@ const createInitialState = (): DashboardViewState => ({
   areaTotal: Number(middleStats[1]?.value ?? 0),
   vehiclesOnSite: Number(middleStats[2]?.value ?? 0),
   railStatus: middleStats[3]?.value === '占用' ? '占用' : '空闲',
-  doorOpen: false,
+  selectedDoorId: DEFAULT_DOOR_ID,
+  doorStates: createDoorStateMap(false),
+  doorFlowDirections: createDoorFlowDirectionMap('out'),
   deviceRegions: [...INITIAL_DEVICE_REGIONS],
   deviceTypes: [...INITIAL_DEVICE_TYPES],
   deviceRecords: buildInitialRecords(INITIAL_DEVICE_REGIONS, INITIAL_DEVICE_TYPES),
 })
 
+// 深拷贝视图状态，避免 mock/current 共用引用导致串改。
 const cloneState = (state: DashboardViewState): DashboardViewState => ({
   onlineAccess: state.onlineAccess,
   areaTotal: state.areaTotal,
   vehiclesOnSite: state.vehiclesOnSite,
   railStatus: state.railStatus,
-  doorOpen: state.doorOpen,
+  selectedDoorId: state.selectedDoorId,
+  doorStates: { ...state.doorStates },
+  doorFlowDirections: { ...state.doorFlowDirections },
   deviceRegions: [...state.deviceRegions],
   deviceTypes: [...state.deviceTypes],
   deviceRecords: state.deviceRecords.map((it) => ({ ...it })),
@@ -111,13 +148,16 @@ const applyOverviewData = (data: DashboardOverviewData) => {
     areaTotal: data.areaTotal,
     vehiclesOnSite: data.vehiclesOnSite,
     railStatus: data.railStatus,
-    doorOpen: currentState.value.doorOpen,
+    selectedDoorId: currentState.value.selectedDoorId,
+    doorStates: { ...currentState.value.doorStates },
+    doorFlowDirections: { ...currentState.value.doorFlowDirections },
     deviceRegions: [...data.deviceRegions],
     deviceTypes: [...data.deviceTypes],
     deviceRecords: data.deviceRecords.map((r) => ({ ...r })),
   }
 }
 
+// 维度（区域/设备）变化时重建二维矩阵，旧值可复用则保留。
 const rebuildRecordsByDimensions = (
   regions: string[],
   devices: string[],
@@ -195,6 +235,7 @@ const stopOverviewAutoRefresh = () => {
   }
 }
 
+// API 模式入口：重置筛选并拉一次可选项 + 概览，再开启轮询。
 const enterApiMode = async () => {
   selectedRegionId.value = 'all'
   selectedDeviceType.value = 'all'
@@ -232,7 +273,7 @@ let debugKeyHandler: ((e: KeyboardEvent) => void) | null = null
 
 const weekMap = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'] as const
 
-// 补零
+// 补零（时间显示用）。
 const pad2 = (num: number) => String(num).padStart(2, '0')
 
 const updateClock = () => {
@@ -250,12 +291,12 @@ const updateClock = () => {
 }
 
 onMounted(() => {
-  // 进入页面先更新一次，再每秒刷新
+  // 进入页面先更新一次，再每秒刷新。
   updateClock()
   clockTimer = window.setInterval(updateClock, 1000)
 
   debugKeyHandler = (e: KeyboardEvent) => {
-    // 快捷键F8
+    // 快捷键 F8 切换调试面板。
     const byF8 = e.key === 'F8'
     if (byF8) {
       e.preventDefault()
@@ -267,7 +308,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  // 离开页面及时清理定时器，避免内存泄漏
+  // 离开页面及时清理定时器和监听，避免内存泄漏。
   if (clockTimer !== null) {
     window.clearInterval(clockTimer)
   }
@@ -278,16 +319,16 @@ onBeforeUnmount(() => {
   stopOverviewAutoRefresh()
 })
 
-// 底部菜单当前激活项
+// 底部菜单当前激活项。
 const activeMenu = ref<string | null>(null)
 
 const handleBottomMenuClick = (item: (typeof bottomMenus)[number]) => {
-  // 记录激活项，再跳转到目标系统地址
+  // 记录激活项，再跳转到目标系统地址。
   activeMenu.value = item.label
   window.location.href = item.url
 }
 
-// 在设备数据数组中，找到"某区域 + 某设备"的那条记录，然后用新数据替换它
+// 在设备数据数组中，定位“区域 + 设备”并替换记录。
 const handleDeviceRecordUpdate = (payload: DashboardDeviceRecord) => {
   if (dataSource.value === 'api') return
   const idx = mockState.value.deviceRecords.findIndex(
@@ -356,9 +397,36 @@ const handleMockRailStatusUpdate = (value: RailStatus) => {
   projectMockToCurrent()
 }
 
-const handleMockDoorOpenUpdate = (value: boolean) => {
+const handleMockSelectedDoorUpdate = (value: string) => {
   if (dataSource.value === 'api') return
-  mockState.value = { ...mockState.value, doorOpen: value }
+  mockState.value = { ...mockState.value, selectedDoorId: value }
+  projectMockToCurrent()
+}
+
+const handleToggleSelectedDoor = () => {
+  if (dataSource.value === 'api') return
+  const doorId = mockState.value.selectedDoorId
+  mockState.value = {
+    ...mockState.value,
+    doorStates: {
+      ...mockState.value.doorStates,
+      [doorId]: !mockState.value.doorStates[doorId],
+    },
+  }
+  projectMockToCurrent()
+}
+
+const handleToggleSelectedDoorFlowDirection = () => {
+  if (dataSource.value === 'api') return
+  const doorId = mockState.value.selectedDoorId
+  const current = mockState.value.doorFlowDirections[doorId] ?? 'out'
+  mockState.value = {
+    ...mockState.value,
+    doorFlowDirections: {
+      ...mockState.value.doorFlowDirections,
+      [doorId]: current === 'out' ? 'in' : 'out',
+    },
+  }
   projectMockToCurrent()
 }
 </script>
@@ -366,6 +434,7 @@ const handleMockDoorOpenUpdate = (value: boolean) => {
 <template>
   <CockpitShell>
     <div class="cockpit">
+      <CockpitSceneMount :door-states="currentState.doorStates" :door-flow-directions="currentState.doorFlowDirections" />
       <CockpitHeader
         :date-text="dateText"
         :time-text="timeText"
@@ -375,7 +444,6 @@ const handleMockDoorOpenUpdate = (value: boolean) => {
       />
 
       <div class="cockpit__body">
-        <CockpitSceneMount :door-open="currentState.doorOpen" />
         <CockpitSidePanels :left-panels="leftPanels" :right-panels="rightPanels">
           <!-- 向父组件的 CockpitPanelCard 中，指定一个名为 left-device 的插槽内容 -->
           <template #left-device>
@@ -400,7 +468,10 @@ const handleMockDoorOpenUpdate = (value: boolean) => {
           :area-total="currentState.areaTotal"
           :vehicles-on-site="currentState.vehiclesOnSite"
           :rail-status="currentState.railStatus"
-          :door-open="currentState.doorOpen"
+          :door-ids="MOCK_DOOR_IDS"
+          :selected-door-id="currentState.selectedDoorId"
+          :selected-door-open="currentState.doorStates[currentState.selectedDoorId] ?? false"
+          :selected-door-flow-direction="currentState.doorFlowDirections[currentState.selectedDoorId] ?? 'out'"
           :regions="currentState.deviceRegions"
           :devices="currentState.deviceTypes"
           :records="currentState.deviceRecords"
@@ -410,7 +481,9 @@ const handleMockDoorOpenUpdate = (value: boolean) => {
           @update:area-total="handleMockAreaTotalUpdate"
           @update:vehicles-on-site="handleMockVehiclesOnSiteUpdate"
           @update:rail-status="handleMockRailStatusUpdate"
-          @update:door-open="handleMockDoorOpenUpdate"
+          @update:selected-door-id="handleMockSelectedDoorUpdate"
+          @toggle-selected-door="handleToggleSelectedDoor"
+          @toggle-selected-door-flow-direction="handleToggleSelectedDoorFlowDirection"
           @update:record="handleDeviceRecordUpdate"
           @refresh="loadDashboardFromApi"
         />

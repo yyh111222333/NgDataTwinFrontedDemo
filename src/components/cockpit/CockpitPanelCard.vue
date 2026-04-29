@@ -1,7 +1,5 @@
 <script setup lang="ts">
-// 单个看板壳组件：
-// - title: 标题
-// - dim: 是否用“矮一点”的版式
+// 通用看板壳：统一标题和边框视觉，具体内容由 slot 注入。
 withDefaults(
   defineProps<{
     title: string

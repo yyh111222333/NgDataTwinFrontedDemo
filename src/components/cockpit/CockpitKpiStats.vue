@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// 中间 KPI 数字组件（当前为静态展示，后续可直接换成接口数据）
+// 中间 KPI 展示组件：展示数值类指标，并对火车道状态做颜色区分。
 defineProps<{
   items: Array<{ value: string | number; label: string }>
 }>()

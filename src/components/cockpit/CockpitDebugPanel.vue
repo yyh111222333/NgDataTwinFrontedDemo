@@ -3,7 +3,9 @@ import type { DashboardDeviceRecord, RailStatus } from '@/types/dashboard'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 export type CockpitDataSource = 'mock' | 'api'
+export type DoorFlowDirection = 'out' | 'in'
 
+// 调试面板：用于切换 mock/api 数据源，并在 mock 模式下做实时数据注入。
 const props = defineProps<{
   visible: boolean
   dataSource: CockpitDataSource
@@ -13,7 +15,10 @@ const props = defineProps<{
   areaTotal: number
   vehiclesOnSite: number
   railStatus: RailStatus
-  doorOpen: boolean
+  doorIds: string[]
+  selectedDoorId: string
+  selectedDoorOpen: boolean
+  selectedDoorFlowDirection: DoorFlowDirection
   regions: string[]
   devices: string[]
   records: DashboardDeviceRecord[]
@@ -28,7 +33,9 @@ const emit = defineEmits<{
   (e: 'update:areaTotal', value: number): void
   (e: 'update:vehiclesOnSite', value: number): void
   (e: 'update:railStatus', value: RailStatus): void
-  (e: 'update:doorOpen', value: boolean): void
+  (e: 'update:selectedDoorId', value: string): void
+  (e: 'toggleSelectedDoor'): void
+  (e: 'toggleSelectedDoorFlowDirection'): void
   (e: 'update:record', payload: DashboardDeviceRecord): void
 }>()
 
@@ -50,6 +57,7 @@ let dragOffsetY = 0
 
 const clamp = (val: number, min: number, max: number) => Math.min(max, Math.max(min, val))
 
+// 处理 autofit 缩放后的拖拽坐标换算，避免面板“鼠标点上去就偏移”。
 const getDragContext = () => {
   const panelEl = panelRef.value
   if (!panelEl) return null
@@ -259,16 +267,29 @@ const currentRecord = computed(() => {
     </label>
 
     <label class="cockpit-debug-panel__row">
-      <span>门状态</span>
+      <span>门选择</span>
       <select
-        :value="doorOpen ? 'open' : 'closed'"
+        :value="selectedDoorId"
         :disabled="editLocked"
-        @change="emit('update:doorOpen', ($event.target as HTMLSelectElement).value === 'open')"
+        @change="emit('update:selectedDoorId', ($event.target as HTMLSelectElement).value)"
       >
-        <option value="closed">关门</option>
-        <option value="open">开门</option>
+        <option v-for="doorId in doorIds" :key="doorId" :value="doorId">{{ doorId }}</option>
       </select>
     </label>
+
+    <div class="cockpit-debug-panel__row cockpit-debug-panel__row--actions">
+      <button type="button" class="cockpit-debug-panel__btn" :disabled="editLocked" @click="emit('toggleSelectedDoor')">
+        {{ selectedDoorOpen ? '关门' : '开门' }}
+      </button>
+      <button
+        type="button"
+        class="cockpit-debug-panel__btn"
+        :disabled="editLocked"
+        @click="emit('toggleSelectedDoorFlowDirection')"
+      >
+        {{ selectedDoorFlowDirection === 'out' ? '出' : '进' }}
+      </button>
+    </div>
 
     <div class="cockpit-debug-panel__split"></div>
     <div class="cockpit-debug-panel__title">设备状态测试数据</div>

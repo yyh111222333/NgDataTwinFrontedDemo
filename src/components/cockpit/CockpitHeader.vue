@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// 顶栏组件，只展示，显示时间的逻辑在父组件
+// 顶栏组件：仅负责展示，时间与健康检测状态由父组件提供。
 defineProps<{
   dateText: string
   timeText: string

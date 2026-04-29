@@ -1,48 +1,62 @@
-# SecurityControlPlatform_frontend
+### 门禁命名结构
 
-This template should help get you started developing with Vue 3 in Vite.
+####  门 ID（门级主键）
+统一格式：
 
-## Recommended IDE Setup
+`gate_<type>_<area>_<index>`
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+> `type`：门型（如 `tripod`、`person`）
+> `area`：区域（如 `A`、`B`、`F`）
+> `index`：同区域门序号（如 `01`、`02`）
 
-## Recommended Browser Setup
+示例：
+> `gate_tripod_A_01`
+> `gate_person_A_01`
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+####  三辊闸机（tripod）部件命名
+格式：
 
-## Type Support for `.vue` Imports in TS
+`gate_tripod_<area>_<index>_<part>`
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+其中 `part` 约定如下：
+>轨迹：`route_01`、`route_02`、`route_03`
+>三根杆：`rotor_01`、`rotor_02`、`rotor_03`
+>旋转中心：`pivot`
+>外框静态：`static`
+>内框静态：`static-2`
+>外框补线：`static-3` ~ `static-6`
 
-## Customize configuration
+示例：
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+>`gate_tripod_A_01_route_01`
+>`gate_tripod_A_01_rotor_02`
+>`gate_tripod_A_01_pivot`
+>`gate_tripod_A_01_static-4`
 
-## Project Setup
+####  人员门（person）部件命名
+格式：
 
-```sh
-npm install
-```
+`gate_person_<area>_<index>_<part>`
 
-### Compile and Hot-Reload for Development
+其中 `part` 约定如下：
 
-```sh
-npm run dev
-```
+>可动门扇：`leaf`
+>旋转中心：`pivot`
 
-### Type-Check, Compile and Minify for Production
+示例：
 
-```sh
-npm run build
-```
+>`gate_person_A_01_leaf`
+>`gate_person_A_01_pivot`
 
-### Lint with [ESLint](https://eslint.org/)
+####  静态墙体命名
+墙体使用 `wall` 前缀即可：
 
-```sh
-npm run lint
-```
+>`wall`
+>`wall-2`
+>`wall-3`
+
+####  约束与说明
+
+>所有元素 `id` 必须全局唯一。
+>推荐“每个可动/关键静态元素都带门前缀”，便于解析和调试。
+>门选择使用门级 ID（如 `gate_person_A_01`）。
