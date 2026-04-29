@@ -1,5 +1,5 @@
+<!-- 通用看板卡片：提供统一标题与外框样式。 -->
 <script setup lang="ts">
-// 通用看板壳：统一标题和边框视觉，具体内容由 slot 注入。
 withDefaults(
   defineProps<{
     title: string
@@ -13,9 +13,7 @@ withDefaults(
 
 <template>
   <section class="cockpit-panel-card" :class="{ 'is-dim': dim }">
-    <!-- 统一标题区域 -->
     <h3 class="cockpit-panel-card__title">{{ title }}</h3>
-    <!-- 内容由父组件传入（图表、数字、列表都可） -->
     <slot />
   </section>
 </template>

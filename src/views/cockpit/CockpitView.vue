@@ -1,5 +1,5 @@
+<!-- 大屏视图入口：编排页面状态并组合各 cockpit 子组件。 -->
 <script setup lang="ts">
-// 页面组装层：负责状态编排与组件组装，不承载具体图形动画细节。
 import CockpitBottomNav from '@/components/cockpit/CockpitBottomNav.vue'
 import CockpitDeviceStatus from '@/components/cockpit/CockpitDeviceStatus.vue'
 import CockpitDebugPanel from '@/components/cockpit/CockpitDebugPanel.vue'
@@ -12,7 +12,7 @@ import { useBackendHealth } from '@/composables/useBackendHealth'
 import { bottomMenus, middleStats, panels } from '@/config/cockpit'
 import CockpitShell from '@/layouts/CockpitShell.vue'
 import demoSvgRaw from '@/assets/demo.svg?raw'
-import type { DoorFlowDirection } from '@/components/cockpit/CockpitDebugPanel.vue'
+import type { DoorFlowDirection } from '@/types/door'
 import type {
   DashboardDeviceRecord,
   DashboardOverviewData,
@@ -51,11 +51,9 @@ const createDoorStateMap = (value: boolean) =>
 const createDoorFlowDirectionMap = (value: DoorFlowDirection) =>
   Object.fromEntries(MOCK_DOOR_IDS.map((id) => [id, value])) as Record<string, DoorFlowDirection>
 
-// 从统一配置里拆出左右两列，模板里直接使用
 const leftPanels = panels.filter((panel) => panel.side === 'left')
 const rightPanels = panels.filter((panel) => panel.side === 'right')
 
-// 顶栏时间展示：日期、时分秒、星期
 const dateText = ref('')
 const timeText = ref('')
 const weekText = ref('')
@@ -273,7 +271,6 @@ let debugKeyHandler: ((e: KeyboardEvent) => void) | null = null
 
 const weekMap = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'] as const
 
-// 补零（时间显示用）。
 const pad2 = (num: number) => String(num).padStart(2, '0')
 
 const updateClock = () => {
@@ -291,12 +288,10 @@ const updateClock = () => {
 }
 
 onMounted(() => {
-  // 进入页面先更新一次，再每秒刷新。
   updateClock()
   clockTimer = window.setInterval(updateClock, 1000)
 
   debugKeyHandler = (e: KeyboardEvent) => {
-    // 快捷键 F8 切换调试面板。
     const byF8 = e.key === 'F8'
     if (byF8) {
       e.preventDefault()
@@ -308,7 +303,6 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  // 离开页面及时清理定时器和监听，避免内存泄漏。
   if (clockTimer !== null) {
     window.clearInterval(clockTimer)
   }
@@ -319,16 +313,13 @@ onBeforeUnmount(() => {
   stopOverviewAutoRefresh()
 })
 
-// 底部菜单当前激活项。
 const activeMenu = ref<string | null>(null)
 
 const handleBottomMenuClick = (item: (typeof bottomMenus)[number]) => {
-  // 记录激活项，再跳转到目标系统地址。
   activeMenu.value = item.label
   window.location.href = item.url
 }
 
-// 在设备数据数组中，定位“区域 + 设备”并替换记录。
 const handleDeviceRecordUpdate = (payload: DashboardDeviceRecord) => {
   if (dataSource.value === 'api') return
   const idx = mockState.value.deviceRecords.findIndex(
@@ -445,7 +436,6 @@ const handleToggleSelectedDoorFlowDirection = () => {
 
       <div class="cockpit__body">
         <CockpitSidePanels :left-panels="leftPanels" :right-panels="rightPanels">
-          <!-- 向父组件的 CockpitPanelCard 中，指定一个名为 left-device 的插槽内容 -->
           <template #left-device>
             <CockpitDeviceStatus
               :records="currentState.deviceRecords"

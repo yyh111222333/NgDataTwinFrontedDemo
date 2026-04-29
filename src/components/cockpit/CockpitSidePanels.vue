@@ -1,3 +1,4 @@
+<!-- 侧边看板容器：负责左右面板布局与插槽分发。 -->
 <script setup lang="ts">
 // 左右看板容器：负责布局和遍历
 import CockpitPanelCard from '@/components/cockpit/CockpitPanelCard.vue'

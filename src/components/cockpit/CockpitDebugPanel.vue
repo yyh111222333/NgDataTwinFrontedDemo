@@ -1,9 +1,10 @@
+<!-- 调试面板：切换数据源并在 mock 模式下手动改写大屏数据。 -->
 <script setup lang="ts">
 import type { DashboardDeviceRecord, RailStatus } from '@/types/dashboard'
+import type { DoorFlowDirection } from '@/types/door'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 export type CockpitDataSource = 'mock' | 'api'
-export type DoorFlowDirection = 'out' | 'in'
 
 // 调试面板：用于切换 mock/api 数据源，并在 mock 模式下做实时数据注入。
 const props = defineProps<{

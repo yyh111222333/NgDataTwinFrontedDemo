@@ -1,3 +1,4 @@
+<!-- KPI 展示组件：显示顶部核心指标与状态颜色。 -->
 <script setup lang="ts">
 // 中间 KPI 展示组件：展示数值类指标，并对火车道状态做颜色区分。
 defineProps<{

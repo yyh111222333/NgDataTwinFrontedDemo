@@ -1,5 +1,5 @@
+<!-- 底部导航组件：展示系统入口菜单并抛出点击事件。 -->
 <script setup lang="ts">
-// 底部导航组件：接收菜单与激活态，点击后抛出事件由父组件决定跳转逻辑。
 defineProps<{
   menus: readonly { label: string; url: string }[]
   activeMenu: string | null
@@ -12,7 +12,6 @@ const emit = defineEmits<{
 
 <template>
   <div class="cockpit-bottom-nav">
-    <!-- 底部线条闪光 SVG 动画定义 -->
     <svg class="cockpit-bottom-nav__line-defs" aria-hidden="true">
       <symbol id="cockpitBottomLineSymbol" viewBox="0 0 721 57">
         <defs>
@@ -43,7 +42,6 @@ const emit = defineEmits<{
         />
       </symbol>
     </svg>
-    <!-- 左右两侧复用同一路径，右侧做镜像 -->
     <svg class="cockpit-bottom-nav__svg-line cockpit-bottom-nav__svg-line--left" viewBox="0 0 721 57" preserveAspectRatio="none" aria-hidden="true">
       <use href="#cockpitBottomLineSymbol" />
     </svg>

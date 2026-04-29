@@ -1,5 +1,5 @@
+<!-- 顶栏组件：展示时间、系统标题与服务状态。 -->
 <script setup lang="ts">
-// 顶栏组件：仅负责展示，时间与健康检测状态由父组件提供。
 defineProps<{
   dateText: string
   timeText: string
@@ -12,12 +12,10 @@ defineProps<{
 
 <template>
   <header class="cockpit-header">
-    <!-- 左上时间 -->
     <div class="cockpit-header__time">
       <span>{{ dateText }}</span>
       <span>{{ timeText }} {{ weekText }}</span>
     </div>
-    <!-- 中间标题 + 两侧线条动画 -->
     <div class="cockpit-header__brand">
       <svg class="cockpit-header__line-defs" aria-hidden="true">
         <symbol id="cockpitLineSymbol" viewBox="0 0 961 79">
@@ -65,7 +63,6 @@ defineProps<{
         <use href="#cockpitLineSymbol" />
       </svg>
     </div>
-    <!-- 右上操作区 -->
     <div class="cockpit-header__actions">
       <div class="cockpit-header__health">
         <span 

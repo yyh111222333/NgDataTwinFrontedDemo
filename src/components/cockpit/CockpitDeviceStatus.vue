@@ -1,3 +1,4 @@
+<!-- 设备状态组件：按区域/设备筛选并展示在线离线统计图。 -->
 <script setup lang="ts">
 import { computed } from 'vue'
 import VChart from 'vue-echarts'
