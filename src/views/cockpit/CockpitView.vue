@@ -11,7 +11,7 @@ import { getDashboardOverview, getDeviceStatusOptions } from '@/api/dashboard'
 import { useBackendHealth } from '@/composables/useBackendHealth'
 import { bottomMenus, middleStats, panels } from '@/config/cockpit'
 import CockpitShell from '@/layouts/CockpitShell.vue'
-import demoSvgRaw from '@/assets/demo.svg?raw'
+import plantMapSvgRaw from '@/assets/厂区地图_画板 1.svg?raw'
 import type { DoorFlowDirection } from '@/types/door'
 import type {
   DashboardDeviceRecord,
@@ -44,7 +44,7 @@ const extractDoorIdsFromSvg = (svgRaw: string): string[] => {
   return Array.from(out)
 }
 
-const MOCK_DOOR_IDS = extractDoorIdsFromSvg(demoSvgRaw)
+const MOCK_DOOR_IDS = extractDoorIdsFromSvg(plantMapSvgRaw)
 const DEFAULT_DOOR_ID = MOCK_DOOR_IDS[0] ?? 'gate_tripod_A_01'
 const createDoorStateMap = (value: boolean) =>
   Object.fromEntries(MOCK_DOOR_IDS.map((id) => [id, value])) as Record<string, boolean>

@@ -1,6 +1,6 @@
 <!-- 场景挂载组件：渲染 SVG 厂区并分发各类门禁动画。 -->
 <script setup lang="ts">
-import demoSvgRaw from '@/assets/demo.svg?raw'
+import plantMapSvgRaw from '@/assets/厂区地图_画板 1.svg?raw'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import {
   animateTripodStep,
@@ -31,7 +31,7 @@ const DURATION_MS = 3000
 const DARK_OPACITY = 0.28
 
 // 仅在 setup 阶段解析一次静态几何，运行时只改 runtime。
-const { gateGeometries, personGateGeometries, wallLines, wallPolylines } = parseSceneGeometry(demoSvgRaw)
+const { gateGeometries, personGateGeometries, wallLines, wallPolylines } = parseSceneGeometry(plantMapSvgRaw)
 const gateRuntimes = ref<Record<string, TripodRuntime>>({})
 const personGateRuntimes = ref<Record<string, PersonRuntime>>({})
 

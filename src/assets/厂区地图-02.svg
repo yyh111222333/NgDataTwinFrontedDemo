@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14400 14400">
+  <defs>
+    <style>
+      .cls-1 {
+        stroke: #f2f2f2;
+      }
+
+      .cls-1, .cls-2, .cls-3, .cls-4, .cls-5, .cls-6, .cls-7 {
+        fill: none;
+        stroke-miterlimit: 10;
+      }
+
+      .cls-2, .cls-4 {
+        stroke: #5df;
+      }
+
+      .cls-3 {
+        stroke: #fff;
+      }
+
+      .cls-4 {
+        stroke-width: 3px;
+      }
+
+      .cls-5 {
+        stroke: #fffcfc;
+      }
+
+      .cls-6 {
+        stroke: #c7f7ff;
+      }
+
+      .cls-6, .cls-7 {
+        stroke-width: 6px;
+      }
+
+      .cls-7 {
+        stroke: #c7f7ff;
+      }
+    </style>
+  </defs>
+  <g id="gate_tripod_A_01">
+    <path id="gate_tripod_A_01_route_01" class="cls-1" d="M7244.91,7009.83s30.21-9.65,30.21,52.06"/>
+    <path id="gate_tripod_A_01_route_02" class="cls-3" d="M7244.91,7113.96s30.21,5.33,30.21-52.06"/>
+    <path id="gate_tripod_A_01_route_03" class="cls-1" d="M7244.91,7113.96s-26.03-51.94,0-104.13"/>
+    <circle id="gate_tripod_A_01_pivot" class="cls-1" cx="7181.93" cy="7061.9" r="11.43"/>
+  </g>
+  <g id="gate_tripod_A_02">
+    <path id="gate_tripod_A_02_route_01" class="cls-1" d="M6978.8,7232.31s-9.65-30.21,52.06-30.21"/>
+    <path id="gate_tripod_A_02_route_02" class="cls-3" d="M7082.93,7232.31s5.33-30.21-52.06-30.21"/>
+    <path id="gate_tripod_A_02_route_03" class="cls-1" d="M7082.93,7232.31s-51.94,26.03-104.13,0"/>
+    <line id="gate_tripod_A_02_rotor_03" class="cls-6" x1="6978.8" y1="7232.31" x2="7030.86" y2="7295.29"/>
+    <line id="gate_tripod_A_02_rotor_02" class="cls-7" x1="7030.86" y1="7202.1" x2="7030.86" y2="7295.29"/>
+    <line id="gate_tripod_A_02_rotor_01" class="cls-6" x1="7030.86" y1="7295.29" x2="7082.93" y2="7232.31"/>
+    <rect id="gate_tripod_A_02_static" class="cls-4" x="6963.63" y="7265.9" width="134.48" height="58.79"/>
+    <rect id="gate_tripod_A_02_static-2" data-name="gate_tripod_A_02_static" class="cls-2" x="6967.63" y="7269.9" width="126.48" height="50.79"/>
+    <line id="gate_tripod_A_02_static-3" data-name="gate_tripod_A_02_static" class="cls-2" x1="6963.63" y1="7265.9" x2="6967.63" y2="7269.9"/>
+    <line id="gate_tripod_A_02_static-4" data-name="gate_tripod_A_02_static" class="cls-2" x1="7098.1" y1="7265.9" x2="7094.1" y2="7269.9"/>
+    <line id="gate_tripod_A_02_static-5" data-name="gate_tripod_A_02_static" class="cls-2" x1="7098.1" y1="7324.69" x2="7094.1" y2="7320.69"/>
+    <line id="gate_tripod_A_02_static-6" data-name="gate_tripod_A_02_static" class="cls-2" x1="6963.63" y1="7324.69" x2="6967.63" y2="7320.69"/>
+    <circle id="gate_tripod_A_02_pivot" class="cls-1" cx="7030.86" cy="7295.29" r="11.43"/>
+  </g>
+  <g id="gate_person_A_01">
+    <line id="gate_person_A_01_leaf" class="cls-6" x1="6938.4" y1="7173.45" x2="6938.4" y2="7283.17"/>
+    <circle id="gate_person_A_01_pivot" class="cls-5" cx="6938.4" cy="7173.45" r="12.24"/>
+  </g>
+  <g id="gate_person_A_02">
+    <circle id="gate_person_A_02_pivot" class="cls-5" cx="6779.36" cy="7105.91" r="12.24"/>
+    <line id="gate_person_A_02_leaf" class="cls-6" x1="6779.36" y1="7105.91" x2="6889.07" y2="7105.91"/>
+  </g>
+  <g id="static">
+    <polyline id="wall" class="cls-4" points="6938.4 7283.17 6938.4 7406.21 6736.5 7406.21 6736.5 7105.91 6779.74 7105.91"/>
+    <polyline id="wall-2" data-name="wall" class="cls-4" points="6889.45 7105.91 6938.4 7105.91 6938.4 7173.45"/>
+    <polyline id="wall-3" data-name="wall" class="cls-4" points="7570.85 7215.11 7619.8 7215.11 7619.8 7064.25 7417.9 7064.25 7417.9 7215.11 7461.13 7215.11"/>
+    <polyline id="wall-4" data-name="wall" class="cls-4" points="7152.53 7061.75 7030.86 7061.75 7030.86 7202.1"/>
+    <polyline id="wall-5" data-name="wall" class="cls-4" points="7275.12 7061.75 7391.23 7061.75 7391.23 7406.21 7030.86 7406.21 7030.86 7324.69"/>
+  </g>
+</svg>

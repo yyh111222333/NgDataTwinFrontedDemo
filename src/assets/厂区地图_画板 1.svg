@@ -44,44 +44,36 @@
     <path id="gate_tripod_A_01_route_01" class="cls-1" d="M1005.41,350.33s30.21-9.65,30.21,52.06"/>
     <path id="gate_tripod_A_01_route_02" class="cls-3" d="M1005.41,454.46s30.21,5.33,30.21-52.06"/>
     <path id="gate_tripod_A_01_route_03" class="cls-1" d="M1005.41,454.46s-26.03-51.94,0-104.13"/>
-    <path id="gate_tripod_A_01_rotor_03" class="cls-6" d="M1005.41,350.33l-62.98,52.06"/>
-    <path id="gate_tripod_A_01_rotor_02" class="cls-7" d="M1035.62,402.4h-93.19"/>
-    <line id="gate_tripod_A_01_rotor_01" class="cls-6" x1="942.43" y1="402.4" x2="1005.41" y2="454.46"/>
     <circle id="gate_tripod_A_01_pivot" class="cls-1" cx="942.43" cy="402.4" r="11.43"/>
-    <rect id="gate_tripod_A_01_static" class="cls-4" x="913.03" y="335.16" width="58.79" height="134.48"/>
-    <rect id="gate_tripod_A_01_static-2" data-name="gate_tripod_A_01_static" class="cls-2" x="917.03" y="339.16" width="50.79" height="126.48"/>
-    <line id="gate_tripod_A_01_static-3" data-name="gate_tripod_A_01_static" class="cls-2" x1="971.82" y1="335.16" x2="967.82" y2="339.16"/>
-    <line id="gate_tripod_A_01_static-4" data-name="gate_tripod_A_01_static" class="cls-2" x1="971.82" y1="469.63" x2="967.82" y2="465.63"/>
-    <line id="gate_tripod_A_01_static-5" data-name="gate_tripod_A_01_static" class="cls-2" x1="913.03" y1="469.63" x2="917.03" y2="465.63"/>
-    <line id="gate_tripod_A_01_static-6" data-name="gate_tripod_A_01_static" class="cls-2" x1="913.03" y1="335.16" x2="917.03" y2="339.16"/>
   </g>
   <g id="gate_tripod_A_02">
     <path id="gate_tripod_A_02_route_01" class="cls-1" d="M739.3,572.81s-9.65-30.21,52.06-30.21"/>
     <path id="gate_tripod_A_02_route_02" class="cls-3" d="M843.43,572.81s5.33-30.21-52.06-30.21"/>
     <path id="gate_tripod_A_02_route_03" class="cls-1" d="M843.43,572.81s-51.94,26.03-104.13,0"/>
-    <path id="gate_tripod_A_02_rotor_03" class="cls-6" d="M739.3,572.81l52.06,62.98"/>
-    <path id="gate_tripod_A_02_rotor_02" class="cls-7" d="M791.36,542.6v93.19"/>
+    <line id="gate_tripod_A_02_rotor_03" class="cls-6" x1="739.3" y1="572.81" x2="791.36" y2="635.79"/>
+    <line id="gate_tripod_A_02_rotor_02" class="cls-7" x1="791.36" y1="542.6" x2="791.36" y2="635.79"/>
     <line id="gate_tripod_A_02_rotor_01" class="cls-6" x1="791.36" y1="635.79" x2="843.43" y2="572.81"/>
-    <circle id="gate_tripod_A_02_pivot" class="cls-1" cx="791.36" cy="635.79" r="11.43"/>
     <rect id="gate_tripod_A_02_static" class="cls-4" x="724.13" y="606.4" width="134.48" height="58.79"/>
     <rect id="gate_tripod_A_02_static-2" data-name="gate_tripod_A_02_static" class="cls-2" x="728.13" y="610.4" width="126.48" height="50.79"/>
     <line id="gate_tripod_A_02_static-3" data-name="gate_tripod_A_02_static" class="cls-2" x1="724.13" y1="606.4" x2="728.13" y2="610.4"/>
     <line id="gate_tripod_A_02_static-4" data-name="gate_tripod_A_02_static" class="cls-2" x1="858.6" y1="606.4" x2="854.6" y2="610.4"/>
     <line id="gate_tripod_A_02_static-5" data-name="gate_tripod_A_02_static" class="cls-2" x1="858.6" y1="665.19" x2="854.6" y2="661.19"/>
     <line id="gate_tripod_A_02_static-6" data-name="gate_tripod_A_02_static" class="cls-2" x1="724.13" y1="665.19" x2="728.13" y2="661.19"/>
+    <circle id="gate_tripod_A_02_pivot" class="cls-1" cx="791.36" cy="635.79" r="11.43"/>
   </g>
   <g id="gate_person_A_01">
-    <line id="gate_person_A_01_leaf" class="cls-6" x1="559.48" y1="629.38" x2="559.48" y2="739.1"/>
-    <circle id="gate_person_A_01_pivot" class="cls-5" cx="559.48" cy="629.38" r="12.24"/>
+    <line id="gate_person_A_01_leaf" class="cls-6" x1="698.9" y1="513.95" x2="698.9" y2="623.67"/>
+    <circle id="gate_person_A_01_pivot" class="cls-5" cx="698.9" cy="513.95" r="12.24"/>
   </g>
   <g id="gate_person_A_02">
-    <circle id="gate_person_A_02_pivot" class="cls-5" cx="400.43" cy="561.84" r="12.24"/>
-    <line id="gate_person_A_02_leaf" class="cls-6" x1="400.43" y1="561.84" x2="510.14" y2="561.84"/>
+    <circle id="gate_person_A_02_pivot" class="cls-5" cx="539.86" cy="446.41" r="12.24"/>
+    <line id="gate_person_A_02_leaf" class="cls-6" x1="539.86" y1="446.41" x2="649.57" y2="446.41"/>
   </g>
   <g id="static">
-    <polyline id="wall" class="cls-4" points="559.48 739.1 559.48 862.14 357.57 862.14 357.57 561.84 400.81 561.84"/>
-    <polyline id="wall-2" data-name="wall" class="cls-4" points="510.52 561.84 559.48 561.84 559.48 629.38"/>
-    <polyline id="wall-3" data-name="wall" class="cls-4" points="913.03 402.25 791.36 402.25 791.36 542.6"/>
-    <polyline id="wall-4" data-name="wall" class="cls-4" points="1035.62 402.25 1151.73 402.25 1151.73 746.71 791.36 746.71 791.36 665.19"/>
+    <polyline id="wall" class="cls-4" points="698.9 623.67 698.9 746.71 497 746.71 497 446.41 540.24 446.41"/>
+    <polyline id="wall-2" data-name="wall" class="cls-4" points="649.95 446.41 698.9 446.41 698.9 513.95"/>
+    <polyline id="wall-3" data-name="wall" class="cls-4" points="1331.35 555.61 1380.3 555.61 1380.3 404.75 1178.4 404.75 1178.4 555.61 1221.63 555.61"/>
+    <polyline id="wall-4" data-name="wall" class="cls-4" points="913.03 402.25 791.36 402.25 791.36 542.6"/>
+    <polyline id="wall-5" data-name="wall" class="cls-4" points="1035.62 402.25 1151.73 402.25 1151.73 746.71 791.36 746.71 791.36 665.19"/>
   </g>
 </svg>

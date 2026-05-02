@@ -1,4 +1,4 @@
-// SVG 解析模块：从 demo.svg 提取门禁几何、墙体与绘制样式数据。
+// SVG 解析模块：从厂区地图 SVG 提取门禁几何、墙体与绘制样式数据。
 export type SvgPaint = { stroke?: string; fill?: string; strokeWidth?: number }
 export type Point = { x: number; y: number }
 export type Line = { x1: number; y1: number; x2: number; y2: number; paint: SvgPaint }
@@ -39,28 +39,33 @@ const parseCssNumber = (v: string | null) => {
 
 const parseClassStyleMap = (svgRaw: string): Record<string, SvgClassStyle> => {
   const map: Record<string, SvgClassStyle> = {}
-  const classBlockRegex = /([^{}]+)\{([^}]*)\}/g
-  let m: RegExpExecArray | null = null
-  while ((m = classBlockRegex.exec(svgRaw)) !== null) {
-    const selectorGroup = m[1] ?? ''
-    const body = m[2] ?? ''
-    // 支持 ".cls-1, .cls-2 { ... }" 这种逗号分组写法。
-    const selectors = selectorGroup
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => s.startsWith('.'))
-      .map((s) => s.slice(1))
-    if (selectors.length === 0) continue
-    const rule: SvgClassStyle = {}
-    const widthMatch = body.match(/stroke-width\s*:\s*([^;]+);?/i)
-    if (widthMatch) rule.strokeWidth = parseCssNumber(widthMatch[1] ?? '0')
-    const strokeMatch = body.match(/stroke\s*:\s*([^;]+);?/i)
-    if (strokeMatch) rule.stroke = (strokeMatch[1] ?? '').trim()
-    const fillMatch = body.match(/fill\s*:\s*([^;]+);?/i)
-    if (fillMatch) rule.fill = (fillMatch[1] ?? '').trim()
-    selectors.forEach((cls) => {
-      map[cls] = { ...(map[cls] ?? {}), ...rule }
-    })
+  const styleBlockRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi
+  let styleMatch: RegExpExecArray | null = null
+  while ((styleMatch = styleBlockRegex.exec(svgRaw)) !== null) {
+    const cssText = styleMatch[1] ?? ''
+    const classBlockRegex = /([^{}]+)\{([^}]*)\}/g
+    let m: RegExpExecArray | null = null
+    while ((m = classBlockRegex.exec(cssText)) !== null) {
+      const selectorGroup = m[1] ?? ''
+      const body = m[2] ?? ''
+      // 支持 ".cls-1, .cls-2 { ... }" 这种逗号分组写法。
+      const selectors = selectorGroup
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s.startsWith('.'))
+        .map((s) => s.slice(1))
+      if (selectors.length === 0) continue
+      const rule: SvgClassStyle = {}
+      const widthMatch = body.match(/stroke-width\s*:\s*([^;]+);?/i)
+      if (widthMatch) rule.strokeWidth = parseCssNumber(widthMatch[1] ?? '0')
+      const strokeMatch = body.match(/stroke\s*:\s*([^;]+);?/i)
+      if (strokeMatch) rule.stroke = (strokeMatch[1] ?? '').trim()
+      const fillMatch = body.match(/fill\s*:\s*([^;]+);?/i)
+      if (fillMatch) rule.fill = (fillMatch[1] ?? '').trim()
+      selectors.forEach((cls) => {
+        map[cls] = { ...(map[cls] ?? {}), ...rule }
+      })
+    }
   }
   return map
 }
