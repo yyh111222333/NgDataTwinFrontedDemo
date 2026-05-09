@@ -23,7 +23,7 @@ const emit = defineEmits<{
             <circle r="50" cx="0" cy="0" fill="url(#cockpitBottomLineGrad)">
               <animateMotion
                 begin="0s"
-                dur="3s"
+                dur="1.5s"
                 path="M1 56.6105C1 31.5123 185.586 10.0503 451.904 1.35519C458.942 1.12543 465.781 4.00883 470.505 9.22964L484.991 25.2383C487.971 28.4775 492.938 30.4201 498.254 30.4201H720.142"
                 rotate="auto"
                 keyPoints="0;1"

@@ -1,4 +1,4 @@
-// 三辊闸动画模块：管理三根杆的轨迹推进、亮暗状态与动画生命周期。
+// 三辊闸动画：出/进各一步，杆端沿 route path 弧长采样；每次触发从初始姿态重播，不累积步进。
 import type { GateGeometry, Point } from './svgParser'
 import type { DoorFlowDirection } from '@/types/door'
 
@@ -12,9 +12,23 @@ export type TripodRuntime = {
   rotorBrightness: number[]
   ready: boolean
   rafId: number | null
+  /** 路径就绪后缓存：初始姿态 + 出/进各一步的 transition 与目标亮度/slot。 */
+  playbackCache: TripodPlaybackCache | null
 }
 
-// slot 迁移规则：
+type TripodPlaybackCache = {
+  fromEndpoints: Point[]
+  fromBrightness: number[]
+  fromSlots: Slot[]
+  outTransitions: TransitionSpec[]
+  outToSlots: Slot[]
+  outToBrightness: number[]
+  inTransitions: TransitionSpec[]
+  inToSlots: Slot[]
+  inToBrightness: number[]
+}
+
+// slot 迁移规则（用于推导一步的 path 走向）：
 // out: 1 <- 2 <- 3 <- 1
 // in : 1 -> 2 -> 3 -> 1
 const nextSlot = (slot: Slot, flowDirection: DoorFlowDirection): Slot => {
@@ -22,10 +36,8 @@ const nextSlot = (slot: Slot, flowDirection: DoorFlowDirection): Slot => {
   return (slot === 3 ? 1 : slot + 1) as Slot
 }
 
-// 亮度规则：位于 slot=2 的杆为亮，其余为暗。
 const brightBySlot = (slot: Slot) => (slot === 2 ? 1 : 0)
 
-// 从“起点 slot -> 终点 slot”推导该杆应沿哪条轨迹、是否反向取点。
 const resolveTransition = (from: Slot, to: Slot): TransitionSpec => {
   if (from === 2 && to === 1) return { routeIndex: 0, reverse: true }
   if (from === 1 && to === 2) return { routeIndex: 0, reverse: false }
@@ -35,14 +47,42 @@ const resolveTransition = (from: Slot, to: Slot): TransitionSpec => {
   return { routeIndex: 2, reverse: false }
 }
 
-// 基于 path 总长和进度 t 取点；reverse=true 时按 1-t 反向行进。
-const routePointAt = (runtime: TripodRuntime, geometry: GateGeometry, routeIndex: number, t: number, reverse: boolean): Point => {
+const routePointAt = (
+  runtime: TripodRuntime,
+  geometry: GateGeometry,
+  routeIndex: number,
+  t: number,
+  reverse: boolean,
+): Point => {
   const path = runtime.routeRefs[routeIndex]
   if (!path) return runtime.rotorEndpoints[routeIndex] ?? geometry.pivot
   const len = path.getTotalLength()
   const progress = reverse ? 1 - t : t
   const p = path.getPointAtLength(len * progress)
   return { x: p.x, y: p.y }
+}
+
+const buildPlaybackCache = (runtime: TripodRuntime, geometry: GateGeometry) => {
+  const fromSlots = [...runtime.rotorSlots] as Slot[]
+  const fromEndpoints = runtime.rotorEndpoints.map((p) => ({ ...p }))
+  const fromBrightness = [...runtime.rotorBrightness]
+
+  const outToSlots = fromSlots.map((slot) => nextSlot(slot, 'out')) as Slot[]
+  const inToSlots = fromSlots.map((slot) => nextSlot(slot, 'in')) as Slot[]
+  const outTransitions = fromSlots.map((from, idx) => resolveTransition(from, outToSlots[idx] ?? from))
+  const inTransitions = fromSlots.map((from, idx) => resolveTransition(from, inToSlots[idx] ?? from))
+
+  runtime.playbackCache = {
+    fromEndpoints,
+    fromBrightness,
+    fromSlots,
+    outTransitions,
+    outToSlots,
+    outToBrightness: outToSlots.map((s) => brightBySlot(s)),
+    inTransitions,
+    inToSlots,
+    inToBrightness: inToSlots.map((s) => brightBySlot(s)),
+  }
 }
 
 export const createTripodRuntime = (): TripodRuntime => ({
@@ -56,9 +96,10 @@ export const createTripodRuntime = (): TripodRuntime => ({
   rotorBrightness: [0, 1, 0],
   ready: false,
   rafId: null,
+  playbackCache: null,
 })
 
-// 首次绑定路径后，根据轨迹端点推导三个 slot 的初始位置。
+// 首次绑定路径后，根据轨迹端点推导初始杆位；清空重播缓存以便下次动画重建。
 export const initTripodRuntimeFromPaths = (runtime: TripodRuntime) => {
   const r0 = runtime.routeRefs[0]
   const r1 = runtime.routeRefs[1]
@@ -75,6 +116,7 @@ export const initTripodRuntimeFromPaths = (runtime: TripodRuntime) => {
     { x: slot1.x, y: slot1.y },
   ]
   runtime.ready = true
+  runtime.playbackCache = null
 }
 
 export const stopTripodAnimation = (runtime: TripodRuntime) => {
@@ -84,7 +126,7 @@ export const stopTripodAnimation = (runtime: TripodRuntime) => {
   }
 }
 
-// 单次 tripod 动画：3秒内同步推进位置与亮度，结束后写回最终 slot。
+// 每次触发：回到缓存的初始姿态，再沿 path 弧长走完整一步；亮度仍线性插值。
 export const animateTripodStep = (
   runtime: TripodRuntime,
   geometry: GateGeometry,
@@ -93,31 +135,42 @@ export const animateTripodStep = (
 ) => {
   if (!runtime.ready) return
   stopTripodAnimation(runtime)
-  const start = performance.now()
-  const fromSlots = [...runtime.rotorSlots] as Slot[]
-  const toSlots = fromSlots.map((slot) => nextSlot(slot, flowDirection)) as Slot[]
-  const transitions = fromSlots.map((from, idx) => resolveTransition(from, toSlots[idx] ?? from))
-  const fromBrightness = fromSlots.map((slot) => brightBySlot(slot))
-  const toBrightness = toSlots.map((slot) => brightBySlot(slot))
+  if (!runtime.playbackCache) {
+    buildPlaybackCache(runtime, geometry)
+  }
+  const cache = runtime.playbackCache
+  if (!cache) return
 
+  const transitions = flowDirection === 'out' ? cache.outTransitions : cache.inTransitions
+  const toBrightness = flowDirection === 'out' ? cache.outToBrightness : cache.inToBrightness
+  const toSlots = flowDirection === 'out' ? cache.outToSlots : cache.inToSlots
+
+  const fromB = cache.fromBrightness
+  runtime.rotorSlots = [...cache.fromSlots]
+  runtime.rotorEndpoints = cache.fromEndpoints.map((p) => ({ ...p }))
+  runtime.rotorBrightness = [...fromB]
+
+  const start = performance.now()
   const step = (now: number) => {
     const raw = Math.min(1, (now - start) / durationMs)
-    runtime.rotorEndpoints = runtime.rotorEndpoints.map((_, idx) => {
-      const transition = transitions[idx]
-      if (!transition) return runtime.rotorEndpoints[idx] ?? geometry.pivot
-      return routePointAt(runtime, geometry, transition.routeIndex, raw, transition.reverse)
+    runtime.rotorEndpoints = transitions.map((tr, idx) => {
+      if (!tr) return runtime.rotorEndpoints[idx] ?? geometry.pivot
+      return routePointAt(runtime, geometry, tr.routeIndex, raw, tr.reverse)
     })
-    runtime.rotorBrightness = runtime.rotorBrightness.map((_, idx) => {
-      const from = fromBrightness[idx] ?? 0
-      const to = toBrightness[idx] ?? from
-      return from + (to - from) * raw
+    runtime.rotorBrightness = fromB.map((b, idx) => {
+      const tb = toBrightness[idx] ?? b
+      return b + (tb - b) * raw
     })
     if (raw < 1) {
       runtime.rafId = requestAnimationFrame(step)
       return
     }
-    runtime.rotorSlots = toSlots
-    runtime.rotorBrightness = toBrightness
+    runtime.rotorEndpoints = transitions.map((tr, idx) => {
+      if (!tr) return runtime.rotorEndpoints[idx] ?? geometry.pivot
+      return routePointAt(runtime, geometry, tr.routeIndex, 1, tr.reverse)
+    })
+    runtime.rotorBrightness = [...toBrightness]
+    runtime.rotorSlots = [...toSlots]
     runtime.rafId = null
   }
 

@@ -15,6 +15,12 @@ import {
   stopPersonAnimation,
   type PersonRuntime,
 } from './sceneMount/personAnimator'
+import {
+  animateFullheightStep,
+  createFullheightRuntime,
+  stopFullheightAnimation,
+  type FullheightRuntime,
+} from './sceneMount/fullheightAnimator'
 import { parseSceneGeometry } from './sceneMount/svgParser'
 import type { DoorFlowDirection } from '@/types/door'
 
@@ -27,19 +33,24 @@ const props = defineProps<{
   doorFlowDirections: Record<string, DoorFlowDirection>
 }>()
 
-const DURATION_MS = 3000
+const DURATION_MS = 1500
 const DARK_OPACITY = 0.28
 
 // 仅在 setup 阶段解析一次静态几何，运行时只改 runtime。
-const { gateGeometries, personGateGeometries, wallLines, wallPolylines } = parseSceneGeometry(plantMapSvgRaw)
+const { gateGeometries, personGateGeometries, fullheightGateGeometries, wallLines, wallPolylines } =
+  parseSceneGeometry(plantMapSvgRaw)
 const gateRuntimes = ref<Record<string, TripodRuntime>>({})
 const personGateRuntimes = ref<Record<string, PersonRuntime>>({})
+const fullheightGateRuntimes = ref<Record<string, FullheightRuntime>>({})
 
 const gateIds = computed(() =>
   Object.keys(gateGeometries).filter((id) => Object.prototype.hasOwnProperty.call(props.doorStates, id)),
 )
 const personGateIds = computed(() =>
   Object.keys(personGateGeometries).filter((id) => Object.prototype.hasOwnProperty.call(props.doorStates, id)),
+)
+const fullheightGateIds = computed(() =>
+  Object.keys(fullheightGateGeometries).filter((id) => Object.prototype.hasOwnProperty.call(props.doorStates, id)),
 )
 
 // 延迟初始化：仅当某门实际渲染/触发时才创建 runtime。
@@ -59,12 +70,24 @@ const ensurePersonRuntime = (gateId: string): PersonRuntime => {
   return next
 }
 
+const ensureFullheightRuntime = (gateId: string): FullheightRuntime => {
+  const existing = fullheightGateRuntimes.value[gateId]
+  if (existing) return existing
+  const next = createFullheightRuntime()
+  fullheightGateRuntimes.value = { ...fullheightGateRuntimes.value, [gateId]: next }
+  return next
+}
+
 const gateRuntimeMap = computed<Record<string, TripodRuntime>>(() =>
   Object.fromEntries(gateIds.value.map((doorId) => [doorId, ensureRuntime(doorId)])),
 )
 
 const personRuntimeMap = computed<Record<string, PersonRuntime>>(() =>
   Object.fromEntries(personGateIds.value.map((doorId) => [doorId, ensurePersonRuntime(doorId)])),
+)
+
+const fullheightRuntimeMap = computed<Record<string, FullheightRuntime>>(() =>
+  Object.fromEntries(fullheightGateIds.value.map((doorId) => [doorId, ensureFullheightRuntime(doorId)])),
 )
 
 const setRouteRef = (gateId: string, idx: number, el: unknown) => {
@@ -83,6 +106,7 @@ const rotorOpacity = (gateId: string, idx: number) => {
 
 // 门状态翻转时触发动画：
 // - gate_tripod_* -> tripodAnimator
+// - gate_fullheight_* -> fullheightAnimator
 // - gate_person_* -> personAnimator
 watch(
   () => ({ ...props.doorStates }),
@@ -98,6 +122,11 @@ watch(
         animateTripodStep(runtime, geometry, flowDirection, DURATION_MS)
         return
       }
+      if (Object.prototype.hasOwnProperty.call(fullheightGateGeometries, doorId)) {
+        const runtime = ensureFullheightRuntime(doorId)
+        animateFullheightStep(runtime, flowDirection, DURATION_MS)
+        return
+      }
       if (Object.prototype.hasOwnProperty.call(personGateGeometries, doorId)) {
         const runtime = ensurePersonRuntime(doorId)
         animatePersonStep(runtime, flowDirection, DURATION_MS)
@@ -108,6 +137,9 @@ watch(
 
 onBeforeUnmount(() => {
   Object.keys(gateRuntimes.value).forEach((doorId) => stopTripodAnimation(ensureRuntime(doorId)))
+  Object.keys(fullheightGateRuntimes.value).forEach((doorId) =>
+    stopFullheightAnimation(ensureFullheightRuntime(doorId)),
+  )
   Object.keys(personGateRuntimes.value).forEach((doorId) => stopPersonAnimation(ensurePersonRuntime(doorId)))
 })
 </script>
@@ -217,6 +249,33 @@ onBeforeUnmount(() => {
             :style="line.paint"
           />
         </g>
+        <g v-for="doorId in fullheightGateIds" :key="doorId">
+          <path
+            v-for="(sp, spIdx) in fullheightGateGeometries[doorId]?.staticPaths ?? []"
+            :key="`${doorId}-fh-static-${spIdx}`"
+            class="fullheight-static"
+            :d="sp.d"
+            :style="sp.paint"
+          />
+          <line
+            v-for="(leaf, leafIdx) in fullheightGateGeometries[doorId]?.leaves ?? []"
+            :key="`${doorId}-fh-leaf-${leafIdx}`"
+            class="fullheight-leaf"
+            :x1="leaf.x1"
+            :y1="leaf.y1"
+            :x2="leaf.x2"
+            :y2="leaf.y2"
+            :transform="`rotate(${fullheightRuntimeMap[doorId]?.angleDeg ?? 0}, ${fullheightGateGeometries[doorId]?.pivot.x ?? 0}, ${fullheightGateGeometries[doorId]?.pivot.y ?? 0})`"
+            :style="leaf.paint"
+          />
+          <circle
+            class="fullheight-pivot"
+            :cx="fullheightGateGeometries[doorId]?.pivot.x ?? 0"
+            :cy="fullheightGateGeometries[doorId]?.pivot.y ?? 0"
+            :r="fullheightGateGeometries[doorId]?.pivotRadius"
+            :style="fullheightGateGeometries[doorId]?.pivotPaint"
+          />
+        </g>
         <g v-for="doorId in personGateIds" :key="doorId">
           <line
             class="person-leaf"
@@ -276,6 +335,10 @@ onBeforeUnmount(() => {
 }
 
 .person-leaf {
+  stroke-linecap: round;
+}
+
+.fullheight-leaf {
   stroke-linecap: round;
 }
 </style>

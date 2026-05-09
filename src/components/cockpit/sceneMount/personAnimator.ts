@@ -18,7 +18,7 @@ export const stopPersonAnimation = (runtime: PersonRuntime) => {
   }
 }
 
-// 人员门动画：总时长 3 秒，前半程开门，后半程回位。
+// 人员门动画：时长由调用方 durationMs 决定，前半程开门，后半程回位。
 // out: 逆时针（-90°）再回 0°；in: 顺时针（+90°）再回 0°。
 export const animatePersonStep = (runtime: PersonRuntime, flowDirection: DoorFlowDirection, durationMs: number) => {
   stopPersonAnimation(runtime)

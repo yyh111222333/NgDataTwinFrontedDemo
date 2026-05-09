@@ -27,6 +27,16 @@ export type PersonGateGeometry = {
   pivotPaint: SvgPaint
 }
 
+/** 全高闸：多 leaf + path 外形 + pivot（leaf 编号 leaf_01 …）。 */
+export type FullheightGateGeometry = {
+  id: string
+  leaves: Line[]
+  pivot: Point
+  pivotRadius: number
+  pivotPaint: SvgPaint
+  staticPaths: { d: string; paint: SvgPaint }[]
+}
+
 type SvgClassStyle = { strokeWidth?: number; stroke?: string; fill?: string }
 
 const parseNumber = (v: string | null) => Number(v ?? '0')
@@ -189,12 +199,64 @@ const parseTripodGeometries = (doc: Document, classMap: Record<string, SvgClassS
   return out
 }
 
+const parseFullheightGeometries = (doc: Document, classMap: Record<string, SvgClassStyle>) => {
+  const pivotEls = Array.from(doc.querySelectorAll('[id$="_pivot"]')).filter((el) =>
+    (el.getAttribute('id') ?? '').startsWith('gate_fullheight_'),
+  )
+  const out: Record<string, FullheightGateGeometry> = {}
+  pivotEls.forEach((pivotEl) => {
+    const pid = pivotEl.getAttribute('id') ?? ''
+    const base = pid.replace(/_pivot$/i, '')
+    if (!base.startsWith('gate_fullheight_')) return
+
+    const leafEls = Array.from(doc.querySelectorAll(`line[id^="${base}_leaf_"]`))
+      .map((el) => {
+        const lid = el.getAttribute('id') ?? ''
+        const n = Number((/_leaf_(\d+)$/i.exec(lid) ?? [])[1] ?? 0)
+        return { el, n }
+      })
+      .filter(({ n }) => n > 0)
+      .sort((a, b) => a.n - b.n)
+      .map(({ el }) => parseLine(el, classMap))
+    if (leafEls.length === 0) return
+
+    const staticPaths: { d: string; paint: SvgPaint }[] = []
+    const staticMain = doc.getElementById(`${base}_static`)
+    if (staticMain?.tagName === 'path') {
+      const d = staticMain.getAttribute('d') ?? ''
+      if (d) staticPaths.push({ d, paint: getPaint(staticMain, classMap) })
+    }
+    let sn = 2
+    while (true) {
+      const pel = doc.getElementById(`${base}_static-${sn}`)
+      if (!pel || pel.tagName !== 'path') break
+      const d = pel.getAttribute('d') ?? ''
+      if (d) staticPaths.push({ d, paint: getPaint(pel, classMap) })
+      sn += 1
+    }
+
+    out[base] = {
+      id: base,
+      leaves: leafEls,
+      pivot: {
+        x: parseNumber(pivotEl.getAttribute('cx')),
+        y: parseNumber(pivotEl.getAttribute('cy')),
+      },
+      pivotRadius: parseNumber(pivotEl.getAttribute('r')),
+      pivotPaint: getPaint(pivotEl, classMap),
+      staticPaths,
+    }
+  })
+  return out
+}
+
 // 对外统一入口：一次性输出 SceneMount 渲染所需几何数据。
 export const parseSceneGeometry = (svgRaw: string) => {
   if (typeof DOMParser === 'undefined') {
     return {
       gateGeometries: {} as Record<string, GateGeometry>,
       personGateGeometries: {} as Record<string, PersonGateGeometry>,
+      fullheightGateGeometries: {} as Record<string, FullheightGateGeometry>,
       wallLines: [] as Line[],
       wallPolylines: [] as Polyline[],
     }
@@ -204,6 +266,7 @@ export const parseSceneGeometry = (svgRaw: string) => {
   return {
     gateGeometries: parseTripodGeometries(doc, classMap),
     personGateGeometries: parsePersonGateGeometries(doc, classMap),
+    fullheightGateGeometries: parseFullheightGeometries(doc, classMap),
     ...parseWalls(doc, classMap),
   }
 }

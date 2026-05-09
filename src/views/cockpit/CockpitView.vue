@@ -34,6 +34,7 @@ const extractDoorIdsFromSvg = (svgRaw: string): string[] => {
     const normalized = id
       .replace(/_route_\d+$/i, '')
       .replace(/_rotor_\d+$/i, '')
+      .replace(/_leaf_\d+$/i, '')
       .replace(/_leaf$/i, '')
       .replace(/_pivot$/i, '')
       .replace(/_static(?:-\d+)?$/i, '')
