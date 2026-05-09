@@ -30,7 +30,18 @@ export type PersonGateGeometry = {
 /** 全高闸：多 leaf + path 外形 + pivot（leaf 编号 leaf_01 …）。 */
 export type FullheightGateGeometry = {
   id: string
-  leaves: Line[]
+  leaf:
+    | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; paint: SvgPaint }
+    | { kind: 'path'; d: string; paint: SvgPaint }
+  pivot: Point
+  pivotRadius: number
+  pivotPaint: SvgPaint
+  staticPaths: { d: string; paint: SvgPaint }[]
+}
+
+export type BarrierGateGeometry = {
+  id: string
+  leaf: { d: string; paint: SvgPaint }
   pivot: Point
   pivotRadius: number
   pivotPaint: SvgPaint
@@ -209,16 +220,19 @@ const parseFullheightGeometries = (doc: Document, classMap: Record<string, SvgCl
     const base = pid.replace(/_pivot$/i, '')
     if (!base.startsWith('gate_fullheight_')) return
 
-    const leafEls = Array.from(doc.querySelectorAll(`line[id^="${base}_leaf_"]`))
-      .map((el) => {
-        const lid = el.getAttribute('id') ?? ''
-        const n = Number((/_leaf_(\d+)$/i.exec(lid) ?? [])[1] ?? 0)
-        return { el, n }
-      })
-      .filter(({ n }) => n > 0)
-      .sort((a, b) => a.n - b.n)
-      .map(({ el }) => parseLine(el, classMap))
-    if (leafEls.length === 0) return
+    const leafEl = doc.getElementById(`${base}_leaf`)
+    if (!leafEl) return
+    let leaf: FullheightGateGeometry['leaf'] | null = null
+    if (leafEl.tagName === 'line') {
+      const line = parseLine(leafEl, classMap)
+      leaf = { kind: 'line', ...line }
+    } else if (leafEl.tagName === 'path') {
+      const d = leafEl.getAttribute('d') ?? ''
+      if (d.trim().length > 0) {
+        leaf = { kind: 'path', d, paint: getPaint(leafEl, classMap) }
+      }
+    }
+    if (!leaf) return
 
     const staticPaths: { d: string; paint: SvgPaint }[] = []
     const staticMain = doc.getElementById(`${base}_static`)
@@ -237,7 +251,48 @@ const parseFullheightGeometries = (doc: Document, classMap: Record<string, SvgCl
 
     out[base] = {
       id: base,
-      leaves: leafEls,
+      leaf,
+      pivot: {
+        x: parseNumber(pivotEl.getAttribute('cx')),
+        y: parseNumber(pivotEl.getAttribute('cy')),
+      },
+      pivotRadius: parseNumber(pivotEl.getAttribute('r')),
+      pivotPaint: getPaint(pivotEl, classMap),
+      staticPaths,
+    }
+  })
+  return out
+}
+
+const parseBarrierGeometries = (doc: Document, classMap: Record<string, SvgClassStyle>) => {
+  const pivotEls = Array.from(doc.querySelectorAll('[id$="_pivot"]')).filter((el) =>
+    (el.getAttribute('id') ?? '').startsWith('gate_barrier_'),
+  )
+  const out: Record<string, BarrierGateGeometry> = {}
+  pivotEls.forEach((pivotEl) => {
+    const pid = pivotEl.getAttribute('id') ?? ''
+    const base = pid.replace(/_pivot$/i, '')
+    if (!base.startsWith('gate_barrier_')) return
+
+    const leafEl = doc.getElementById(`${base}_leaf`)
+    if (!leafEl || leafEl.tagName !== 'path') return
+    const leafD = leafEl.getAttribute('d') ?? ''
+    if (leafD.trim().length === 0) return
+
+    const staticPaths: { d: string; paint: SvgPaint }[] = []
+    let sn = 1
+    while (true) {
+      const suffix = sn === 1 ? 'static' : `static-${sn}`
+      const pel = doc.getElementById(`${base}_${suffix}`)
+      if (!pel || pel.tagName !== 'path') break
+      const d = pel.getAttribute('d') ?? ''
+      if (d.trim().length > 0) staticPaths.push({ d, paint: getPaint(pel, classMap) })
+      sn += 1
+    }
+
+    out[base] = {
+      id: base,
+      leaf: { d: leafD, paint: getPaint(leafEl, classMap) },
       pivot: {
         x: parseNumber(pivotEl.getAttribute('cx')),
         y: parseNumber(pivotEl.getAttribute('cy')),
@@ -257,6 +312,7 @@ export const parseSceneGeometry = (svgRaw: string) => {
       gateGeometries: {} as Record<string, GateGeometry>,
       personGateGeometries: {} as Record<string, PersonGateGeometry>,
       fullheightGateGeometries: {} as Record<string, FullheightGateGeometry>,
+      barrierGateGeometries: {} as Record<string, BarrierGateGeometry>,
       wallLines: [] as Line[],
       wallPolylines: [] as Polyline[],
     }
@@ -267,6 +323,7 @@ export const parseSceneGeometry = (svgRaw: string) => {
     gateGeometries: parseTripodGeometries(doc, classMap),
     personGateGeometries: parsePersonGateGeometries(doc, classMap),
     fullheightGateGeometries: parseFullheightGeometries(doc, classMap),
+    barrierGateGeometries: parseBarrierGeometries(doc, classMap),
     ...parseWalls(doc, classMap),
   }
 }

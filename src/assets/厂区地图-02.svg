@@ -6,7 +6,7 @@
         stroke: #f2f2f2;
       }
 
-      .cls-1, .cls-2, .cls-3, .cls-4, .cls-5, .cls-6, .cls-7 {
+      .cls-1, .cls-2, .cls-3, .cls-4, .cls-5, .cls-6, .cls-7, .cls-8, .cls-9 {
         fill: none;
         stroke-miterlimit: 10;
       }
@@ -19,24 +19,32 @@
         stroke: #fff;
       }
 
-      .cls-4 {
+      .cls-4, .cls-5 {
         stroke-width: 3px;
       }
 
       .cls-5 {
-        stroke: #fffcfc;
+        stroke: #5df;
       }
 
       .cls-6 {
-        stroke: #c7f7ff;
-      }
-
-      .cls-6, .cls-7 {
-        stroke-width: 6px;
+        stroke: #fffcfc;
       }
 
       .cls-7 {
         stroke: #c7f7ff;
+      }
+
+      .cls-7, .cls-8 {
+        stroke-width: 6px;
+      }
+
+      .cls-8, .cls-9 {
+        stroke: #c7f7ff;
+      }
+
+      .cls-9 {
+        stroke-width: 2px;
       }
     </style>
   </defs>
@@ -44,9 +52,9 @@
     <path id="gate_tripod_A_01_route_01" class="cls-1" d="M7244.91,7009.83s30.21-9.65,30.21,52.06"/>
     <path id="gate_tripod_A_01_route_02" class="cls-3" d="M7244.91,7113.96s30.21,5.33,30.21-52.06"/>
     <path id="gate_tripod_A_01_route_03" class="cls-1" d="M7244.91,7113.96s-26.03-51.94,0-104.13"/>
-    <line id="gate_tripod_A_01_rotor_03" class="cls-6" x1="7244.91" y1="7009.83" x2="7181.93" y2="7061.9"/>
-    <line id="gate_tripod_A_01_rotor_02" class="cls-7" x1="7275.12" y1="7061.9" x2="7181.93" y2="7061.9"/>
-    <line id="gate_tripod_A_01_rotor_01" class="cls-6" x1="7181.93" y1="7061.9" x2="7244.91" y2="7113.96"/>
+    <line id="gate_tripod_A_01_rotor_03" class="cls-7" x1="7244.91" y1="7009.83" x2="7181.93" y2="7061.9"/>
+    <line id="gate_tripod_A_01_rotor_02" class="cls-8" x1="7275.12" y1="7061.9" x2="7181.93" y2="7061.9"/>
+    <line id="gate_tripod_A_01_rotor_01" class="cls-7" x1="7181.93" y1="7061.9" x2="7244.91" y2="7113.96"/>
     <rect id="gate_tripod_A_01_static" class="cls-4" x="7152.53" y="6994.66" width="58.79" height="134.48"/>
     <rect id="gate_tripod_A_01_static-2" data-name="gate_tripod_A_01_static" class="cls-2" x="7156.53" y="6998.66" width="50.79" height="126.48"/>
     <line id="gate_tripod_A_01_static-3" data-name="gate_tripod_A_01_static" class="cls-2" x1="7211.32" y1="6994.66" x2="7207.32" y2="6998.66"/>
@@ -59,9 +67,9 @@
     <path id="gate_tripod_A_02_route_01" class="cls-1" d="M6978.8,7232.31s-9.65-30.21,52.06-30.21"/>
     <path id="gate_tripod_A_02_route_02" class="cls-3" d="M7082.93,7232.31s5.33-30.21-52.06-30.21"/>
     <path id="gate_tripod_A_02_route_03" class="cls-1" d="M7082.93,7232.31s-51.94,26.03-104.13,0"/>
-    <line id="gate_tripod_A_02_rotor_03" class="cls-6" x1="6978.8" y1="7232.31" x2="7030.86" y2="7295.29"/>
-    <line id="gate_tripod_A_02_rotor_02" class="cls-7" x1="7030.86" y1="7202.1" x2="7030.86" y2="7295.29"/>
-    <line id="gate_tripod_A_02_rotor_01" class="cls-6" x1="7030.86" y1="7295.29" x2="7082.93" y2="7232.31"/>
+    <line id="gate_tripod_A_02_rotor_03" class="cls-7" x1="6978.8" y1="7232.31" x2="7030.86" y2="7295.29"/>
+    <line id="gate_tripod_A_02_rotor_02" class="cls-8" x1="7030.86" y1="7202.1" x2="7030.86" y2="7295.29"/>
+    <line id="gate_tripod_A_02_rotor_01" class="cls-7" x1="7030.86" y1="7295.29" x2="7082.93" y2="7232.31"/>
     <rect id="gate_tripod_A_02_static" class="cls-4" x="6963.63" y="7265.9" width="134.48" height="58.79"/>
     <rect id="gate_tripod_A_02_static-2" data-name="gate_tripod_A_02_static" class="cls-2" x="6967.63" y="7269.9" width="126.48" height="50.79"/>
     <line id="gate_tripod_A_02_static-3" data-name="gate_tripod_A_02_static" class="cls-2" x1="6963.63" y1="7265.9" x2="6967.63" y2="7269.9"/>
@@ -71,30 +79,32 @@
     <circle id="gate_tripod_A_02_pivot" class="cls-3" cx="7030.86" cy="7295.29" r="11.43"/>
   </g>
   <g id="gate_person_A_01">
-    <line id="gate_person_A_01_leaf" class="cls-6" x1="6938.4" y1="7173.45" x2="6938.4" y2="7283.17"/>
-    <circle id="gate_person_A_01_pivot" class="cls-5" cx="6938.4" cy="7173.45" r="12.24"/>
+    <line id="gate_person_A_01_leaf" class="cls-7" x1="6938.4" y1="7173.45" x2="6938.4" y2="7283.17"/>
+    <circle id="gate_person_A_01_pivot" class="cls-6" cx="6938.4" cy="7173.45" r="12.24"/>
   </g>
   <g id="gate_person_A_02">
-    <circle id="gate_person_A_02_pivot" class="cls-5" cx="6779.36" cy="7105.91" r="12.24"/>
-    <line id="gate_person_A_02_leaf" class="cls-6" x1="6779.36" y1="7105.91" x2="6889.07" y2="7105.91"/>
+    <circle id="gate_person_A_02_pivot" class="cls-6" cx="6779.36" cy="7105.91" r="12.24"/>
+    <line id="gate_person_A_02_leaf" class="cls-7" x1="6779.36" y1="7105.91" x2="6889.07" y2="7105.91"/>
   </g>
   <g id="gate_fullheight_A_01">
-    <path id="gate_fullheight_A_01_static" class="cls-4" d="M7540.38,7107.18c-13.41-12.45-21.76-29.93-21.76-49.29s8.36-36.86,21.79-49.31"/>
-    <path id="gate_fullheight_A_01_static-2" data-name="gate_fullheight_A_01_static" class="cls-4" d="M7638.96,7008.61c13.41,12.45,21.76,29.93,21.76,49.29s-8.33,36.82-21.73,49.26"/>
-    <line id="gate_fullheight_A_01_leaf_04" class="cls-7" x1="7589.67" y1="7057.89" x2="7542.1" y2="7105.47"/>
-    <line id="gate_fullheight_A_01_leaf_03" class="cls-7" x1="7589.95" y1="7058.12" x2="7637.52" y2="7105.69"/>
-    <line id="gate_fullheight_A_01_leaf_02" class="cls-7" x1="7589.67" y1="7057.89" x2="7637.24" y2="7010.32"/>
-    <line id="gate_fullheight_A_01_leaf_01" class="cls-7" x1="7589.72" y1="7057.89" x2="7542.15" y2="7010.32"/>
+    <path id="gate_fullheight_A_01_static" class="cls-4" d="M7540.38,7107.18c-13.41-12.45-21.76-29.93-21.76-49.29s8.36-36.86,21.79-49.31M7638.99,7107.16c13.4-12.45,21.73-29.92,21.73-49.26s-8.35-36.84-21.76-49.29"/>
+    <path id="gate_fullheight_A_01_leaf" class="cls-8" d="M7589.67,7057.89l-47.57,47.57M7589.95,7058.12l47.57,47.57M7589.67,7057.89l47.57-47.57M7589.72,7057.89l-47.57-47.57"/>
     <circle id="gate_fullheight_A_01_pivot" class="cls-1" cx="7589.67" cy="7057.89" r="12.68"/>
   </g>
   <g id="gate_fullheight_A_02">
-    <path id="gate_fullheight_A_02_static" class="cls-4" d="M7432.35,6964.65c-13.41-12.45-21.76-29.93-21.76-49.29s8.36-36.86,21.79-49.31"/>
-    <path id="gate_fullheight_A_02_static-2" data-name="gate_fullheight_A_02_static" class="cls-4" d="M7530.93,6866.07c13.41,12.45,21.76,29.93,21.76,49.29s-8.33,36.82-21.73,49.26"/>
-    <line id="gate_fullheight_A_02_leaf_04" class="cls-7" x1="7481.64" y1="6915.36" x2="7434.07" y2="6962.93"/>
-    <line id="gate_fullheight_A_02_leaf_03" class="cls-7" x1="7481.92" y1="6915.58" x2="7529.49" y2="6963.15"/>
-    <line id="gate_fullheight_A_02_leaf_02" class="cls-7" x1="7481.64" y1="6915.36" x2="7529.21" y2="6867.79"/>
-    <line id="gate_fullheight_A_02_leaf_01" class="cls-7" x1="7481.7" y1="6915.36" x2="7434.13" y2="6867.79"/>
+    <path id="gate_fullheight_A_02_static" class="cls-4" d="M7432.35,6964.65c-13.41-12.45-21.76-29.93-21.76-49.29s8.36-36.86,21.79-49.31M7530.96,6964.62c13.4-12.45,21.73-29.92,21.73-49.26s-8.35-36.84-21.76-49.29"/>
+    <path id="gate_fullheight_A_02_leaf" class="cls-8" d="M7481.64,6915.36l-47.57,47.57M7529.49,6963.15l-47.57-47.57M7481.64,6915.36l47.57-47.57M7481.7,6915.36l-47.57-47.57"/>
     <circle id="gate_fullheight_A_02_pivot" class="cls-1" cx="7481.64" cy="6915.36" r="12.68"/>
+  </g>
+  <g id="gate_barrier_A_01">
+    <path id="gate_barrier_A_01_static" class="cls-5" d="M7468.53,7475.36v-121.23c0-10.63,8.61-19.24,19.24-19.24h62.26c10.63,0,19.24,8.61,19.24,19.24v121.23c0,10.63-8.61,19.24-19.24,19.24h-62.25c-10.63,0-19.24-8.61-19.24-19.24ZM7554.58,7465.66v-101.84c0-5.86-4.75-10.6-10.6-10.6h-50.16c-5.86,0-10.6,4.75-10.6,10.6v101.84c0,5.86,4.75,10.6,10.6,10.6h50.16c5.86,0,10.6-4.75,10.6-10.6Z"/>
+    <circle id="gate_barrier_A_01_pivot" class="cls-1" cx="7518.89" cy="7414.74" r="18.37"/>
+    <path id="gate_barrier_A_01_leaf" class="cls-9" d="M7500.53,7419.01v-8.55c0-4.29,3.48-7.77,7.77-7.77h437.89c4.29,0,7.77,3.48,7.77,7.77v8.55c0,4.29-3.48,7.77-7.77,7.77h-437.89c-4.29,0-7.77-3.48-7.77-7.77ZM7948.96,7419.29v-9.11c0-2.52-2.05-4.57-4.57-4.57h-434.28c-2.52,0-4.57,2.05-4.57,4.57v9.11c0,2.52,2.05,4.57,4.57,4.57h434.28c2.52,0,4.57-2.05,4.57-4.57ZM7626.07,7405.61l-38.1,18.25M7672.64,7423.86l38.1-18.25M7757.32,7423.86l38.1-18.25M7841.99,7423.86l38.1-18.25"/>
+  </g>
+  <g id="gate_barrier_A_02">
+    <path id="gate_barrier_A_02_static" class="cls-5" d="M7274.89,7431.12v-121.23c0-10.63,8.61-19.24,19.24-19.24h62.26c10.63,0,19.24,8.61,19.24,19.24v121.23c0,10.63-8.61,19.24-19.24,19.24h-62.25c-10.63,0-19.24-8.61-19.24-19.24ZM7360.94,7421.42v-101.84c0-5.86-4.75-10.6-10.6-10.6h-50.16c-5.86,0-10.6,4.75-10.6,10.6v101.84c0,5.86,4.75,10.6,10.6,10.6h50.16c5.86,0,10.6-4.75,10.6-10.6Z"/>
+    <circle id="gate_barrier_A_02_pivot" class="cls-1" cx="7325.26" cy="7370.5" r="18.37"/>
+    <path id="gate_barrier_A_02_leaf" class="cls-9" d="M7306.89,7374.78v-8.55c0-4.29,3.48-7.77,7.77-7.77h437.89c4.29,0,7.77,3.48,7.77,7.77v8.55c0,4.29-3.48,7.77-7.77,7.77h-437.89c-4.29,0-7.77-3.48-7.77-7.77ZM7755.32,7375.05v-9.11c0-2.52-2.05-4.57-4.57-4.57h-434.28c-2.52,0-4.57,2.05-4.57,4.57v9.11c0,2.52,2.05,4.57,4.57,4.57h434.28c2.52,0,4.57-2.05,4.57-4.57ZM7432.43,7361.37l-38.1,18.25M7479.01,7379.63l38.1-18.25M7563.68,7379.63l38.1-18.25M7648.35,7379.63l38.1-18.25"/>
   </g>
   <g id="static">
     <polyline id="wall" class="cls-4" points="6938.4 7283.17 6938.4 7406.21 6736.5 7406.21 6736.5 7105.91 6779.74 7105.91"/>

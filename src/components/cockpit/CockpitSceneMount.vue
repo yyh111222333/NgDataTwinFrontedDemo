@@ -21,6 +21,13 @@ import {
   stopFullheightAnimation,
   type FullheightRuntime,
 } from './sceneMount/fullheightAnimator'
+import {
+  animateBarrierStep,
+  createBarrierRuntime,
+  initBarrierRuntimeFromLeaf,
+  stopBarrierAnimation,
+  type BarrierRuntime,
+} from './sceneMount/barrierAnimator'
 import { parseSceneGeometry } from './sceneMount/svgParser'
 import type { DoorFlowDirection } from '@/types/door'
 
@@ -34,14 +41,16 @@ const props = defineProps<{
 }>()
 
 const DURATION_MS = 1500
+const BARRIER_DURATION_MS = 3000
 const DARK_OPACITY = 0.28
 
 // 仅在 setup 阶段解析一次静态几何，运行时只改 runtime。
-const { gateGeometries, personGateGeometries, fullheightGateGeometries, wallLines, wallPolylines } =
+const { gateGeometries, personGateGeometries, fullheightGateGeometries, barrierGateGeometries, wallLines, wallPolylines } =
   parseSceneGeometry(plantMapSvgRaw)
 const gateRuntimes = ref<Record<string, TripodRuntime>>({})
 const personGateRuntimes = ref<Record<string, PersonRuntime>>({})
 const fullheightGateRuntimes = ref<Record<string, FullheightRuntime>>({})
+const barrierGateRuntimes = ref<Record<string, BarrierRuntime>>({})
 
 const gateIds = computed(() =>
   Object.keys(gateGeometries).filter((id) => Object.prototype.hasOwnProperty.call(props.doorStates, id)),
@@ -51,6 +60,9 @@ const personGateIds = computed(() =>
 )
 const fullheightGateIds = computed(() =>
   Object.keys(fullheightGateGeometries).filter((id) => Object.prototype.hasOwnProperty.call(props.doorStates, id)),
+)
+const barrierGateIds = computed(() =>
+  Object.keys(barrierGateGeometries).filter((id) => Object.prototype.hasOwnProperty.call(props.doorStates, id)),
 )
 
 // 延迟初始化：仅当某门实际渲染/触发时才创建 runtime。
@@ -78,6 +90,14 @@ const ensureFullheightRuntime = (gateId: string): FullheightRuntime => {
   return next
 }
 
+const ensureBarrierRuntime = (gateId: string): BarrierRuntime => {
+  const existing = barrierGateRuntimes.value[gateId]
+  if (existing) return existing
+  const next = createBarrierRuntime()
+  barrierGateRuntimes.value = { ...barrierGateRuntimes.value, [gateId]: next }
+  return next
+}
+
 const gateRuntimeMap = computed<Record<string, TripodRuntime>>(() =>
   Object.fromEntries(gateIds.value.map((doorId) => [doorId, ensureRuntime(doorId)])),
 )
@@ -90,12 +110,35 @@ const fullheightRuntimeMap = computed<Record<string, FullheightRuntime>>(() =>
   Object.fromEntries(fullheightGateIds.value.map((doorId) => [doorId, ensureFullheightRuntime(doorId)])),
 )
 
+const barrierRuntimeMap = computed<Record<string, BarrierRuntime>>(() =>
+  Object.fromEntries(barrierGateIds.value.map((doorId) => [doorId, ensureBarrierRuntime(doorId)])),
+)
+
 const setRouteRef = (gateId: string, idx: number, el: unknown) => {
   const runtime = ensureRuntime(gateId)
   runtime.routeRefs[idx] = el instanceof SVGPathElement ? el : null
   if (!runtime.ready && runtime.routeRefs.every((r) => r !== null)) {
     initTripodRuntimeFromPaths(runtime)
   }
+}
+
+const setBarrierLeafRef = (gateId: string, el: unknown) => {
+  const leaf = el instanceof SVGGraphicsElement ? el : null
+  if (!leaf) return
+  const geometry = barrierGateGeometries[gateId]
+  if (!geometry) return
+  const runtime = ensureBarrierRuntime(gateId)
+  if (!runtime.ready) {
+    initBarrierRuntimeFromLeaf(runtime, leaf, geometry.pivot, geometry.pivotRadius)
+  }
+}
+
+const barrierLeafTransform = (gateId: string) => {
+  const runtime = barrierRuntimeMap.value[gateId]
+  if (!runtime || !runtime.ready) return ''
+  const x = runtime.leftX
+  const sx = runtime.scaleX
+  return `translate(${x} 0) scale(${sx} 1) translate(${-x} 0)`
 }
 
 // 将 0~1 亮度映射到可见透明度，避免“暗态完全消失”。
@@ -107,6 +150,7 @@ const rotorOpacity = (gateId: string, idx: number) => {
 // 门状态翻转时触发动画：
 // - gate_tripod_* -> tripodAnimator
 // - gate_fullheight_* -> fullheightAnimator
+// - gate_barrier_* -> barrierAnimator
 // - gate_person_* -> personAnimator
 watch(
   () => ({ ...props.doorStates }),
@@ -127,6 +171,11 @@ watch(
         animateFullheightStep(runtime, flowDirection, DURATION_MS)
         return
       }
+      if (Object.prototype.hasOwnProperty.call(barrierGateGeometries, doorId)) {
+        const runtime = ensureBarrierRuntime(doorId)
+        animateBarrierStep(runtime, flowDirection, BARRIER_DURATION_MS)
+        return
+      }
       if (Object.prototype.hasOwnProperty.call(personGateGeometries, doorId)) {
         const runtime = ensurePersonRuntime(doorId)
         animatePersonStep(runtime, flowDirection, DURATION_MS)
@@ -140,6 +189,7 @@ onBeforeUnmount(() => {
   Object.keys(fullheightGateRuntimes.value).forEach((doorId) =>
     stopFullheightAnimation(ensureFullheightRuntime(doorId)),
   )
+  Object.keys(barrierGateRuntimes.value).forEach((doorId) => stopBarrierAnimation(ensureBarrierRuntime(doorId)))
   Object.keys(personGateRuntimes.value).forEach((doorId) => stopPersonAnimation(ensurePersonRuntime(doorId)))
 })
 </script>
@@ -258,15 +308,21 @@ onBeforeUnmount(() => {
             :style="sp.paint"
           />
           <line
-            v-for="(leaf, leafIdx) in fullheightGateGeometries[doorId]?.leaves ?? []"
-            :key="`${doorId}-fh-leaf-${leafIdx}`"
+            v-if="fullheightGateGeometries[doorId]?.leaf?.kind === 'line'"
             class="fullheight-leaf"
-            :x1="leaf.x1"
-            :y1="leaf.y1"
-            :x2="leaf.x2"
-            :y2="leaf.y2"
+            :x1="fullheightGateGeometries[doorId]?.leaf?.x1"
+            :y1="fullheightGateGeometries[doorId]?.leaf?.y1"
+            :x2="fullheightGateGeometries[doorId]?.leaf?.x2"
+            :y2="fullheightGateGeometries[doorId]?.leaf?.y2"
             :transform="`rotate(${fullheightRuntimeMap[doorId]?.angleDeg ?? 0}, ${fullheightGateGeometries[doorId]?.pivot.x ?? 0}, ${fullheightGateGeometries[doorId]?.pivot.y ?? 0})`"
-            :style="leaf.paint"
+            :style="fullheightGateGeometries[doorId]?.leaf?.paint"
+          />
+          <path
+            v-else-if="fullheightGateGeometries[doorId]?.leaf?.kind === 'path'"
+            class="fullheight-leaf"
+            :d="fullheightGateGeometries[doorId]?.leaf?.d ?? ''"
+            :transform="`rotate(${fullheightRuntimeMap[doorId]?.angleDeg ?? 0}, ${fullheightGateGeometries[doorId]?.pivot.x ?? 0}, ${fullheightGateGeometries[doorId]?.pivot.y ?? 0})`"
+            :style="fullheightGateGeometries[doorId]?.leaf?.paint"
           />
           <circle
             class="fullheight-pivot"
@@ -274,6 +330,29 @@ onBeforeUnmount(() => {
             :cy="fullheightGateGeometries[doorId]?.pivot.y ?? 0"
             :r="fullheightGateGeometries[doorId]?.pivotRadius"
             :style="fullheightGateGeometries[doorId]?.pivotPaint"
+          />
+        </g>
+        <g v-for="doorId in barrierGateIds" :key="doorId">
+          <path
+            v-for="(sp, spIdx) in barrierGateGeometries[doorId]?.staticPaths ?? []"
+            :key="`${doorId}-barrier-static-${spIdx}`"
+            class="barrier-static"
+            :d="sp.d"
+            :style="sp.paint"
+          />
+          <path
+            class="barrier-leaf"
+            :ref="(el) => setBarrierLeafRef(doorId, el)"
+            :d="barrierGateGeometries[doorId]?.leaf.d ?? ''"
+            :style="barrierGateGeometries[doorId]?.leaf.paint"
+            :transform="barrierLeafTransform(doorId)"
+          />
+          <circle
+            class="barrier-pivot"
+            :cx="barrierGateGeometries[doorId]?.pivot.x ?? 0"
+            :cy="barrierGateGeometries[doorId]?.pivot.y ?? 0"
+            :r="barrierGateGeometries[doorId]?.pivotRadius"
+            :style="barrierGateGeometries[doorId]?.pivotPaint"
           />
         </g>
         <g v-for="doorId in personGateIds" :key="doorId">
@@ -339,6 +418,10 @@ onBeforeUnmount(() => {
 }
 
 .fullheight-leaf {
+  stroke-linecap: round;
+}
+
+.barrier-leaf {
   stroke-linecap: round;
 }
 </style>
