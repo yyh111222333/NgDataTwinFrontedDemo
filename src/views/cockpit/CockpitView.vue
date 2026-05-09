@@ -59,7 +59,7 @@ const dateText = ref('')
 const timeText = ref('')
 const weekText = ref('')
 const showDebugPanel = ref(false)
-const dataSource = ref<'mock' | 'api'>('mock')
+const dataSource = ref<'mock' | 'api'>('api')
 const apiLoading = ref(false)
 const apiError = ref<string | null>(null)
 
@@ -257,15 +257,19 @@ const handleDeviceChange = async (newDeviceType: string) => {
   await loadDashboardFromApi()
 }
 
-watch(dataSource, (mode) => {
-  if (mode === 'api') {
-    void enterApiMode()
-    return
-  }
-  stopOverviewAutoRefresh()
-  projectMockToCurrent()
-  initMockOptions()
-})
+watch(
+  dataSource,
+  (mode) => {
+    if (mode === 'api') {
+      void enterApiMode()
+      return
+    }
+    stopOverviewAutoRefresh()
+    projectMockToCurrent()
+    initMockOptions()
+  },
+  { immediate: true },
+)
 
 let clockTimer: number | null = null
 let debugKeyHandler: ((e: KeyboardEvent) => void) | null = null
@@ -300,7 +304,6 @@ onMounted(() => {
     }
   }
   window.addEventListener('keydown', debugKeyHandler)
-  initMockOptions()
 })
 
 onBeforeUnmount(() => {
