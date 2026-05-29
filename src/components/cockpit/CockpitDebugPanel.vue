@@ -1,8 +1,8 @@
 <!-- 调试面板：切换数据源并在 mock 模式下手动改写大屏数据。 -->
 <script setup lang="ts">
-import type { DashboardDeviceRecord, RailStatus } from '@/types/dashboard'
+import type { RailStatus } from '@/types/dashboard'
 import type { DoorFlowDirection } from '@/types/door'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 export type CockpitDataSource = 'mock' | 'api'
 
@@ -20,16 +20,11 @@ const props = defineProps<{
   selectedDoorId: string
   selectedDoorOpen: boolean
   selectedDoorFlowDirection: DoorFlowDirection
-  regions: string[]
-  devices: string[]
-  records: DashboardDeviceRecord[]
 }>()
 
 const emit = defineEmits<{
   (e: 'update:dataSource', value: CockpitDataSource): void
   (e: 'refresh'): void
-  (e: 'update:regions', value: string[]): void
-  (e: 'update:devices', value: string[]): void
   (e: 'update:onlineAccess', value: number): void
   (e: 'update:areaTotal', value: number): void
   (e: 'update:vehiclesOnSite', value: number): void
@@ -37,7 +32,6 @@ const emit = defineEmits<{
   (e: 'update:selectedDoorId', value: string): void
   (e: 'toggleSelectedDoor'): void
   (e: 'toggleSelectedDoorFlowDirection'): void
-  (e: 'update:record', payload: DashboardDeviceRecord): void
 }>()
 
 const toNum = (v: string) => {
@@ -45,10 +39,6 @@ const toNum = (v: string) => {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-const selectedRegion = ref('A区')
-const selectedDevice = ref('人员智能门/联锁门')
-const regionDraft = ref('')
-const deviceDraft = ref('')
 const panelRef = ref<HTMLElement | null>(null)
 const panelLeft = ref(0)
 const panelTop = ref(96)
@@ -116,35 +106,6 @@ const onResize = () => {
 
 const editLocked = computed(() => props.dataSource === 'api' || props.apiLoading === true)
 
-const formatList = (items: string[]) => items.join(', ')
-
-const parseList = (raw: string) =>
-  raw
-    .split(/[,，]/)
-    .map((it) => it.trim())
-    .filter((it, idx, arr) => it.length > 0 && arr.indexOf(it) === idx)
-
-const applyRegionDraft = () => {
-  const parsed = parseList(regionDraft.value)
-  if (parsed.length > 0) emit('update:regions', parsed)
-}
-
-const applyDeviceDraft = () => {
-  const parsed = parseList(deviceDraft.value)
-  if (parsed.length > 0) emit('update:devices', parsed)
-}
-
-watch(
-  () => props.regions,
-  (next) => {
-    regionDraft.value = formatList(next)
-    if (!next.includes(selectedRegion.value)) {
-      selectedRegion.value = next[0] ?? ''
-    }
-  },
-  { immediate: true },
-)
-
 onMounted(() => {
   placePanelToDefault()
   window.addEventListener('mousemove', onDragMove)
@@ -156,28 +117,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('mousemove', onDragMove)
   window.removeEventListener('mouseup', stopDrag)
   window.removeEventListener('resize', onResize)
-})
-
-watch(
-  () => props.devices,
-  (next) => {
-    deviceDraft.value = formatList(next)
-    if (!next.includes(selectedDevice.value)) {
-      selectedDevice.value = next[0] ?? ''
-    }
-  },
-  { immediate: true },
-)
-
-const currentRecord = computed(() => {
-  return (
-    props.records.find((it) => it.region === selectedRegion.value && it.device === selectedDevice.value) ?? {
-      region: selectedRegion.value,
-      device: selectedDevice.value,
-      online: 0,
-      offline: 0,
-    }
-  )
 })
 </script>
 
@@ -291,82 +230,6 @@ const currentRecord = computed(() => {
         {{ selectedDoorFlowDirection === 'out' ? '出' : '进' }}
       </button>
     </div>
-
-    <div class="cockpit-debug-panel__split"></div>
-    <div class="cockpit-debug-panel__title">设备状态测试数据</div>
-    <p v-if="!editLocked" class="cockpit-debug-panel__hint">区域/设备可手动编辑，英文或中文逗号分隔</p>
-
-    <label class="cockpit-debug-panel__row">
-      <span>区域列表</span>
-      <input
-        v-model="regionDraft"
-        class="cockpit-debug-panel__input-wide"
-        type="text"
-        :disabled="editLocked"
-        @blur="applyRegionDraft"
-      />
-    </label>
-
-    <label class="cockpit-debug-panel__row">
-      <span>设备列表</span>
-      <input
-        v-model="deviceDraft"
-        class="cockpit-debug-panel__input-wide"
-        type="text"
-        :disabled="editLocked"
-        @blur="applyDeviceDraft"
-      />
-    </label>
-
-    <label class="cockpit-debug-panel__row">
-      <span>区域</span>
-      <select v-model="selectedRegion" class="cockpit-debug-panel__select-wide" :disabled="editLocked">
-        <option v-for="region in regions" :key="region" :value="region">{{ region }}</option>
-      </select>
-    </label>
-
-    <label class="cockpit-debug-panel__row">
-      <span>设备</span>
-      <select v-model="selectedDevice" class="cockpit-debug-panel__select-wide" :disabled="editLocked">
-        <option v-for="device in devices" :key="device" :value="device">{{ device }}</option>
-      </select>
-    </label>
-
-    <label class="cockpit-debug-panel__row">
-      <span>在线个数</span>
-      <input
-        type="number"
-        :value="currentRecord.online"
-        min="0"
-        :disabled="editLocked"
-        @input="
-          emit('update:record', {
-            region: selectedRegion,
-            device: selectedDevice,
-            online: toNum(($event.target as HTMLInputElement).value),
-            offline: currentRecord.offline,
-          })
-        "
-      />
-    </label>
-
-    <label class="cockpit-debug-panel__row">
-      <span>离线个数</span>
-      <input
-        type="number"
-        :value="currentRecord.offline"
-        min="0"
-        :disabled="editLocked"
-        @input="
-          emit('update:record', {
-            region: selectedRegion,
-            device: selectedDevice,
-            online: currentRecord.online,
-            offline: toNum(($event.target as HTMLInputElement).value),
-          })
-        "
-      />
-    </label>
   </aside>
 </template>
 
@@ -375,13 +238,14 @@ const currentRecord = computed(() => {
   position: absolute;
   left: 0;
   top: 96px;
-  z-index: 10;
+  z-index: 30;
   width: 280px;
   padding: 14px 12px;
   border: 1px solid rgba(48, 220, 255, 0.45);
   border-radius: 8px;
   background: rgba(2, 8, 16, 0.92);
   box-shadow: 0 0 14px rgba(48, 220, 255, 0.2);
+  pointer-events: auto;
 }
 .cockpit-debug-panel__title {
   margin-bottom: 10px;
@@ -419,9 +283,6 @@ const currentRecord = computed(() => {
   outline: none;
 }
 .cockpit-debug-panel__select-wide {
-  width: 160px !important;
-}
-.cockpit-debug-panel__input-wide {
   width: 160px !important;
 }
 .cockpit-debug-panel__btn {

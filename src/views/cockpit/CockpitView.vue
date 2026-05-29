@@ -1,15 +1,24 @@
 <!-- 大屏视图入口：编排页面状态并组合各 cockpit 子组件。 -->
 <script setup lang="ts">
 import CockpitBottomNav from '@/components/cockpit/CockpitBottomNav.vue'
-import CockpitDeviceStatus from '@/components/cockpit/CockpitDeviceStatus.vue'
+import CockpitQuickAppointment from '@/components/cockpit/CockpitQuickAppointment.vue'
 import CockpitDebugPanel from '@/components/cockpit/CockpitDebugPanel.vue'
 import CockpitHeader from '@/components/cockpit/CockpitHeader.vue'
 import CockpitKpiStats from '@/components/cockpit/CockpitKpiStats.vue'
+import CockpitPanelTabs from '@/components/cockpit/CockpitPanelTabs.vue'
+import CockpitVehicleOverview from '@/components/cockpit/CockpitVehicleOverview.vue'
+import CockpitPersonnelOverview from '@/components/cockpit/CockpitPersonnelOverview.vue'
 import CockpitSceneMount from '@/components/cockpit/CockpitSceneMount.vue'
 import CockpitSidePanels from '@/components/cockpit/CockpitSidePanels.vue'
 import { getDashboardOverview, getDeviceStatusOptions } from '@/api/dashboard'
 import { useBackendHealth } from '@/composables/useBackendHealth'
-import { bottomMenus, middleStats, panels } from '@/config/cockpit'
+import {
+  bottomMenus,
+  drivingMonitorTabs,
+  middleStats,
+  panels,
+  smartMonitorTabs,
+} from '@/config/cockpit'
 import CockpitShell from '@/layouts/CockpitShell.vue'
 import plantMapSvgRaw from '@/assets/厂区地图_画板 1.svg?raw'
 import type { DoorFlowDirection } from '@/types/door'
@@ -134,6 +143,7 @@ const runtimeKpiStats = computed(() => [
   { value: String(currentState.value.areaTotal), label: '区域总人数' },
   { value: String(currentState.value.vehiclesOnSite), label: '车辆在场' },
   { value: currentState.value.railStatus, label: '火车道状态' },
+  { value: '0', label: '异常警告' },
 ])
 
 const regionOptions = ref<DeviceStatusOption[]>([])
@@ -154,21 +164,6 @@ const applyOverviewData = (data: DashboardOverviewData) => {
     deviceTypes: [...data.deviceTypes],
     deviceRecords: data.deviceRecords.map((r) => ({ ...r })),
   }
-}
-
-// 维度（区域/设备）变化时重建二维矩阵，旧值可复用则保留。
-const rebuildRecordsByDimensions = (
-  regions: string[],
-  devices: string[],
-  sourceRecords: DashboardDeviceRecord[],
-) => {
-  const map = new Map(sourceRecords.map((it) => [`${it.region}@@${it.device}`, it]))
-  return regions.flatMap((region) =>
-    devices.map((device) => {
-      const cached = map.get(`${region}@@${device}`)
-      return cached ? { ...cached } : { region, device, online: 8, offline: 1 }
-    }),
-  )
 }
 
 const projectMockToCurrent = () => {
@@ -324,50 +319,6 @@ const handleBottomMenuClick = (item: (typeof bottomMenus)[number]) => {
   window.location.href = item.url
 }
 
-const handleDeviceRecordUpdate = (payload: DashboardDeviceRecord) => {
-  if (dataSource.value === 'api') return
-  const idx = mockState.value.deviceRecords.findIndex(
-    (it) => it.region === payload.region && it.device === payload.device,
-  )
-  if (idx >= 0) {
-    const next = mockState.value.deviceRecords.map((it, i) => (i === idx ? { ...payload } : { ...it }))
-    mockState.value = { ...mockState.value, deviceRecords: next }
-    if (dataSource.value === 'mock') {
-      projectMockToCurrent()
-    }
-  }
-}
-
-const handleMockRegionsUpdate = (nextRegions: string[]) => {
-  const nextRecords = rebuildRecordsByDimensions(
-    nextRegions,
-    mockState.value.deviceTypes,
-    mockState.value.deviceRecords,
-  )
-  mockState.value = {
-    ...mockState.value,
-    deviceRegions: [...nextRegions],
-    deviceRecords: nextRecords,
-  }
-  initMockOptions()
-  if (dataSource.value === 'mock') projectMockToCurrent()
-}
-
-const handleMockDevicesUpdate = (nextDevices: string[]) => {
-  const nextRecords = rebuildRecordsByDimensions(
-    mockState.value.deviceRegions,
-    nextDevices,
-    mockState.value.deviceRecords,
-  )
-  mockState.value = {
-    ...mockState.value,
-    deviceTypes: [...nextDevices],
-    deviceRecords: nextRecords,
-  }
-  initMockOptions()
-  if (dataSource.value === 'mock') projectMockToCurrent()
-}
-
 const handleMockOnlineAccessUpdate = (value: number) => {
   if (dataSource.value === 'api') return
   mockState.value = { ...mockState.value, onlineAccess: value }
@@ -429,7 +380,10 @@ const handleToggleSelectedDoorFlowDirection = () => {
 <template>
   <CockpitShell>
     <div class="cockpit">
-      <CockpitSceneMount :door-states="currentState.doorStates" :door-flow-directions="currentState.doorFlowDirections" />
+      <CockpitSceneMount
+        :door-states="currentState.doorStates"
+        :door-flow-directions="currentState.doorFlowDirections"
+      />
       <CockpitHeader
         :date-text="dateText"
         :time-text="timeText"
@@ -438,54 +392,60 @@ const handleToggleSelectedDoorFlowDirection = () => {
         :backend-health-hint="healthError"
       />
 
-      <div class="cockpit__body">
+      <div class="cockpit__main">
         <CockpitSidePanels :left-panels="leftPanels" :right-panels="rightPanels">
-          <template #left-device>
-            <CockpitDeviceStatus
-              :records="currentState.deviceRecords"
-              :region-options="regionOptions"
-              :device-options="deviceOptions"
-              v-model:selected-region-id="selectedRegionId"
-              v-model:selected-device-type="selectedDeviceType"
-              @region-change="handleRegionChange"
-              @device-change="handleDeviceChange"
-            />
+          <template #left-overview>
+            <CockpitKpiStats :items="runtimeKpiStats" />
           </template>
-          <CockpitKpiStats :items="runtimeKpiStats" />
+          <template #left-device>
+            <CockpitPersonnelOverview />
+          </template>
+          <template #left-stat>
+            <CockpitVehicleOverview />
+          </template>
+          <template #right-list>
+            <CockpitPanelTabs :tabs="drivingMonitorTabs" ariaLabel="行车监测概况" :bodyMinHeight="72" />
+          </template>
+          <template #right-risk>
+            <CockpitPanelTabs :tabs="smartMonitorTabs" ariaLabel="智慧监控概况" :bodyMinHeight="72" />
+          </template>
+          <template #right-board>
+            <CockpitQuickAppointment />
+          </template>
         </CockpitSidePanels>
-        <CockpitDebugPanel
-          :visible="showDebugPanel"
-          v-model:data-source="dataSource"
-          :api-loading="apiLoading"
-          :api-error="apiError"
-          :online-access="currentState.onlineAccess"
-          :area-total="currentState.areaTotal"
-          :vehicles-on-site="currentState.vehiclesOnSite"
-          :rail-status="currentState.railStatus"
-          :door-ids="MOCK_DOOR_IDS"
-          :selected-door-id="currentState.selectedDoorId"
-          :selected-door-open="currentState.doorStates[currentState.selectedDoorId] ?? false"
-          :selected-door-flow-direction="currentState.doorFlowDirections[currentState.selectedDoorId] ?? 'out'"
-          :regions="currentState.deviceRegions"
-          :devices="currentState.deviceTypes"
-          :records="currentState.deviceRecords"
-          @update:regions="handleMockRegionsUpdate"
-          @update:devices="handleMockDevicesUpdate"
-          @update:online-access="handleMockOnlineAccessUpdate"
-          @update:area-total="handleMockAreaTotalUpdate"
-          @update:vehicles-on-site="handleMockVehiclesOnSiteUpdate"
-          @update:rail-status="handleMockRailStatusUpdate"
-          @update:selected-door-id="handleMockSelectedDoorUpdate"
-          @toggle-selected-door="handleToggleSelectedDoor"
-          @toggle-selected-door-flow-direction="handleToggleSelectedDoorFlowDirection"
-          @update:record="handleDeviceRecordUpdate"
-          @refresh="loadDashboardFromApi"
-        />
+
+        <div class="cockpit__bottom-bar">
+          <CockpitBottomNav
+            :menus="bottomMenus"
+            :active-menu="activeMenu"
+            @menu-click="handleBottomMenuClick"
+          />
+        </div>
+
       </div>
-      <CockpitBottomNav
-        :menus="bottomMenus"
-        :active-menu="activeMenu"
-        @menu-click="handleBottomMenuClick"
+
+      <!-- 置于 main 外，避免 pointer-events:none 与顶栏 z-index 遮挡 -->
+      <CockpitDebugPanel
+        :visible="showDebugPanel"
+        v-model:data-source="dataSource"
+        :api-loading="apiLoading"
+        :api-error="apiError"
+        :online-access="currentState.onlineAccess"
+        :area-total="currentState.areaTotal"
+        :vehicles-on-site="currentState.vehiclesOnSite"
+        :rail-status="currentState.railStatus"
+        :door-ids="MOCK_DOOR_IDS"
+        :selected-door-id="currentState.selectedDoorId"
+        :selected-door-open="currentState.doorStates[currentState.selectedDoorId] ?? false"
+        :selected-door-flow-direction="currentState.doorFlowDirections[currentState.selectedDoorId] ?? 'out'"
+        @update:online-access="handleMockOnlineAccessUpdate"
+        @update:area-total="handleMockAreaTotalUpdate"
+        @update:vehicles-on-site="handleMockVehiclesOnSiteUpdate"
+        @update:rail-status="handleMockRailStatusUpdate"
+        @update:selected-door-id="handleMockSelectedDoorUpdate"
+        @toggle-selected-door="handleToggleSelectedDoor"
+        @toggle-selected-door-flow-direction="handleToggleSelectedDoorFlowDirection"
+        @refresh="loadDashboardFromApi"
       />
     </div>
   </CockpitShell>
@@ -493,15 +453,37 @@ const handleToggleSelectedDoorFlowDirection = () => {
 
 <style scoped>
 .cockpit {
+  --cockpit-sidebar-w: 400px;
   display: flex;
   flex-direction: column;
   height: 100%;
   position: relative;
 }
 
-.cockpit__body {
+.cockpit__main {
   flex: 1;
-  position: relative;
   min-height: 0;
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: var(--cockpit-sidebar-w) 1fr var(--cockpit-sidebar-w);
+  grid-template-rows: 1fr;
+  pointer-events: none;
+}
+
+.cockpit__bottom-bar {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
+  justify-self: stretch;
+  width: 100%;
+  padding-bottom: 4px;
+  box-sizing: border-box;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.cockpit__bottom-bar :deep(.cockpit-bottom-nav) {
+  pointer-events: all;
 }
 </style>

@@ -1,114 +1,296 @@
-<!-- 顶栏组件：展示时间、系统标题与服务状态。 -->
+<!-- 顶栏组件：展示 Logo、标题、右侧时间与天气/服务状态。 -->
 <script setup lang="ts">
-defineProps<{
-  dateText: string
-  timeText: string
-  weekText: string
-  /** null：首次检测前；true/false：GET /health 结果 */
-  backendOnline?: boolean | null
-  backendHealthHint?: string | null
-}>()
+withDefaults(
+  defineProps<{
+    dateText: string
+    timeText: string
+    weekText: string
+    weatherText?: string
+    /** null：首次检测前；true/false：GET /health 结果 */
+    backendOnline?: boolean | null
+    backendHealthHint?: string | null
+  }>(),
+  {
+    weatherText: '多云 22°C',
+  },
+)
 </script>
 
 <template>
   <header class="cockpit-header">
-    <div class="cockpit-header__time">
-      <span>{{ dateText }}</span>
-      <span>{{ timeText }} {{ weekText }}</span>
-    </div>
-    <div class="cockpit-header__brand">
-      <svg class="cockpit-header__line-defs" aria-hidden="true">
-        <symbol id="cockpitLineSymbol" viewBox="0 0 961 79">
-          <defs>
-            <radialGradient id="cockpitLineGrad" cx="50%" cy="50%" fx="100%" fy="50%" r="50%">
-              <stop offset="0%" stop-color="#fff" stop-opacity="1" />
-              <stop offset="100%" stop-color="#fff" stop-opacity="0" />
-            </radialGradient>
-            <mask id="cockpitLineMask">
-              <circle r="100" cx="0" cy="0" fill="url(#cockpitLineGrad)">
-                <animateMotion
-                  begin="0s"
-                  dur="1.5s"
-                  path="M1 1.52783L535 25.6808C552.73 26.5835 571.454 31.3851 588.834 39.2194C593.758 41.4385 598.692 43.7289 603.643 46.0273C633.567 59.9182 664.121 74.1016 696.754 74.6262C696.765 74.6264 696.775 74.6265 696.786 74.6267C821.602 76.5993 879.336 78 961 78"
-                  rotate="auto"
-                  keyPoints="0;1"
-                  keyTimes="0;1"
-                  repeatCount="indefinite"
-                />
-              </circle>
-            </mask>
-          </defs>
-          <path
-            class="cockpit-header__line-glow"
-            d="M1 1.52783L535 25.6808C552.73 26.5835 571.454 31.3851 588.834 39.2194C593.758 41.4385 598.692 43.7289 603.643 46.0273C633.567 59.9182 664.121 74.1016 696.754 74.6262C696.765 74.6264 696.775 74.6265 696.786 74.6267C821.602 76.5993 879.336 78 961 78"
-            stroke="#30DCFF"
-            stroke-width="2"
-            mask="url(#cockpitLineMask)"
-          />
-        </symbol>
-      </svg>
-      <svg class="cockpit-header__line cockpit-header__line--left" viewBox="0 0 961 79" preserveAspectRatio="none" aria-hidden="true">
-        <use href="#cockpitLineSymbol" />
-      </svg>
-      <h1 class="cockpit-header__title">
-        <span class="cockpit-header__title-main">厂区综合管控大屏总览</span>
-        <span class="cockpit-header__title-sub">Factory Integrated Control Dashboard Overview</span>
-      </h1>
-      <svg
-        class="cockpit-header__line cockpit-header__line--right"
-        viewBox="0 0 961 79"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        <use href="#cockpitLineSymbol" />
-      </svg>
-    </div>
-    <div class="cockpit-header__actions">
-      <div class="cockpit-header__health">
-        <span 
-        class="cockpit-header__health-dot"
-        :class="{
-          'is-unknown': backendOnline === null,
-          'is-online': backendOnline === true,
-          'is-offline': backendOnline === false,
-        }"
+    <div class="cockpit-header__logo">
+      <img
+        class="cockpit-header__logo-img"
+        src="@/assets/nanjing-steel-logo.png"
+        alt="南京钢铁集团有限公司"
       />
-      <span class="cockpit-header__health-text">
-        {{ backendOnline === null ? '检测中' : backendOnline ? '服务在线' : '服务离线' }}
-      </span>
+      <p class="cockpit-header__logo-sub">
+        <span class="cockpit-header__logo-sub-text">中厚板卷厂板材事业部</span>
+      </p>
     </div>
-      <span class="cockpit-header__admin-placeholder">admin登录</span>
-      <button class="cockpit-header__msg-btn" type="button" aria-label="消息占位">
-        <img src="@/assets/icon-massage.png" alt="消息" />
-      </button>
-      <button class="cockpit-header__backend-btn" type="button">进入后台</button>
+
+    <div class="cockpit-header__brand">
+      <span class="cockpit-header__brand-bg" aria-hidden="true" />
+      <span class="cockpit-header__brand-glow" aria-hidden="true" />
+
+      <h1 class="cockpit-header__title">
+        <span class="cockpit-header__title-main">产品管理室数字化安全监管平台</span>
+      </h1>
+    </div>
+
+    <div class="cockpit-header__right">
+      <div class="cockpit-header__clock">
+        <div class="cockpit-header__clock-time">{{ timeText }}</div>
+        <div class="cockpit-header__clock-date">{{ dateText }} {{ weekText }}</div>
+      </div>
+      <div class="cockpit-header__meta">
+        <div class="cockpit-header__weather">
+          <svg class="cockpit-header__weather-icon" viewBox="0 0 48 32" aria-hidden="true">
+            <circle cx="14" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2" />
+            <path
+              d="M6 22h30a8 8 0 0 0 0-16 10 10 0 0 0-19.2 3.2A7 7 0 0 0 6 22z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span>{{ weatherText }}</span>
+        </div>
+        <div class="cockpit-header__health">
+          <span
+            class="cockpit-header__health-dot"
+            :class="{
+              'is-unknown': backendOnline === null,
+              'is-online': backendOnline === true,
+              'is-offline': backendOnline === false,
+            }"
+          />
+          <span class="cockpit-header__health-text">
+            {{ backendOnline === null ? '检测中' : backendOnline ? '服务在线' : '服务离线' }}
+          </span>
+        </div>
+      </div>
     </div>
   </header>
 </template>
 
 <style scoped>
-.cockpit-header { position: relative; height: 90px; flex-shrink: 0; z-index: 3; }
-.cockpit-header__time { position: absolute; left: 32px; top: 30px; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
-.cockpit-header__time span { color: #c4f3fe; font-size: 14px; line-height: 1.1; }
-.cockpit-header__brand { position: absolute; left: 50%; top: 0; transform: translateX(-50%); width: min(1920px, 100%); height: 90px; text-align: center; box-sizing: border-box; padding-top: 10px; background: url('@/assets/header-bg.png') no-repeat center center; background-size: 100% 100%; }
-.cockpit-header__actions { position: absolute; right: 28px; top: 35px; z-index: 2; display: flex; align-items: center; gap: 18px; }
-.cockpit-header__health { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(196, 243, 254, 0.9); user-select: none; }
-.cockpit-header__health-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background-color: #cccccc; }
-.cockpit-header__health-dot.is-online { background-color: #00ff00; }
-.cockpit-header__health-dot.is-offline { background-color: #ff0000; }
-.cockpit-header__health-dot.is-unknown { background-color: #cccccc; }
-.cockpit-header__health-text { white-space: nowrap; }
-.cockpit-header__admin-placeholder { font-size: 14px; color: #c4f3fe; }
-.cockpit-header__msg-btn { width: 30px; height: 30px; border: 1px solid rgba(48, 220, 255, 0.35); border-radius: 50%; background: rgba(48, 220, 255, 0.08); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
-.cockpit-header__msg-btn img { width: 15px; height: 15px; object-fit: contain; }
-.cockpit-header__backend-btn { height: 30px; padding: 0 12px; border: 1px solid rgba(48, 220, 255, 0.45); border-radius: 4px; background: rgba(48, 220, 255, 0.12); color: #b7f4ff; font-size: 13px; cursor: pointer; }
-.cockpit-header__line { position: absolute; top: 11px; width: 961px; height: 79px; pointer-events: none; }
-.cockpit-header__line--left { right: 50%; margin-right: 14px; }
-.cockpit-header__line--right { left: 50%; margin-left: -14px; transform: scaleX(-1); }
-.cockpit-header__line-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
-.cockpit-header__line-glow { fill: none; mix-blend-mode: screen; filter: drop-shadow(0 0 6px rgba(118, 232, 255, 0.8)); }
-.cockpit-header__title { position: relative; z-index: 1; margin: 0; text-align: center; line-height: 1.1; }
-.cockpit-header__title-main { display: block; font-size: 44px; font-weight: 700; letter-spacing: 1px; background: -webkit-linear-gradient(rgba(117, 232, 255, 1), rgba(255, 255, 255, 1)); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
-.cockpit-header__title-sub { display: block; margin-top: 6px; font-size: 12px; letter-spacing: 3px; font-weight: 300; color: rgba(196, 243, 254, 0.64); }
-</style>
+.cockpit-header {
+  position: relative;
+  height: 96px;
+  flex-shrink: 0;
+  /* 高于 cockpit__main，避免放大后的底图下垂部分被侧栏/主区遮住 */
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  box-sizing: border-box;
+  overflow: visible;
+}
 
+.cockpit-header__logo {
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  max-width: 380px;
+}
+
+.cockpit-header__logo-img {
+  display: block;
+  height: 36px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.cockpit-header__logo-sub {
+  margin: 0;
+  padding: 0 4px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.cockpit-header__logo-sub-text {
+  display: inline-block;
+  font-family: 'Microsoft YaHei', 'PingFang SC', 'Source Han Sans SC', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  background: linear-gradient(180deg, #e4eaef 0%, #aab4be 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+.cockpit-header__brand {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  width: min(1920px, 100%);
+  height: 90px;
+  z-index: 1;
+  box-sizing: border-box;
+  pointer-events: none;
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 8px;
+}
+
+.cockpit-header__brand-bg {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  width: 100%;
+  /* 独立绘制区：135% 高度 + 顶部锚点，避免在 90px 内被裁切 */
+  height: calc(90px * 1.35);
+  background: url('@/assets/header-bg.png') no-repeat center top;
+  background-size: auto 100%;
+  pointer-events: none;
+}
+
+.cockpit-header__brand-glow {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: min(900px, 70%);
+  height: 28px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(48, 200, 255, 0.35) 0%, transparent 72%);
+  pointer-events: none;
+  filter: blur(4px);
+}
+
+.cockpit-header__title {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  padding-top: 14px;
+  flex-shrink: 0;
+  text-align: center;
+  line-height: 1.1;
+}
+
+.cockpit-header__title-main {
+  display: block;
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  white-space: nowrap;
+  background: linear-gradient(180deg, #e8fcff 0%, #ffffff 42%, #9ae8ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 16px rgba(72, 220, 255, 0.3));
+}
+
+.cockpit-header__right {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  z-index: 2;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.cockpit-header__clock {
+  text-align: right;
+}
+
+.cockpit-header__clock-time {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 1px;
+  color: #5ce8ff;
+  font-variant-numeric: tabular-nums;
+}
+
+.cockpit-header__clock-date {
+  margin-top: 6px;
+  font-size: 13px;
+  color: rgba(232, 251, 255, 0.9);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.cockpit-header__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.cockpit-header__weather {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: rgba(232, 251, 255, 0.95);
+  white-space: nowrap;
+}
+
+.cockpit-header__weather-icon {
+  width: 40px;
+  height: 26px;
+  color: #8cefff;
+  flex-shrink: 0;
+}
+
+.cockpit-header__health {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: rgba(196, 243, 254, 0.9);
+  user-select: none;
+}
+
+.cockpit-header__health-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background-color: #cccccc;
+}
+
+.cockpit-header__health-dot.is-online {
+  background-color: #00ff00;
+}
+
+.cockpit-header__health-dot.is-offline {
+  background-color: #ff0000;
+}
+
+.cockpit-header__health-dot.is-unknown {
+  background-color: #cccccc;
+}
+
+.cockpit-header__health-text {
+  white-space: nowrap;
+}
+
+@media (max-width: 1600px) {
+  .cockpit-header__title-main {
+    font-size: 34px;
+    letter-spacing: 2px;
+  }
+
+  .cockpit-header__title {
+    padding-top: 12px;
+  }
+}
+</style>

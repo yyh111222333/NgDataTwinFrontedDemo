@@ -2,6 +2,13 @@
 <script setup lang="ts">
 import plantMapSvgRaw from '@/assets/厂区地图_画板 1.svg?raw'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+
+/** 原图模式：按 SVG 文件原样展示（替换地图后刷新即可） */
+const SCENE_RAW_SVG_MODE = true
+/** 门禁动画开关；恢复动画时需设为 true 且 SCENE_RAW_SVG_MODE 设为 false */
+const SCENE_ANIMATION_ENABLED = false
+
+const plantMapSvgHtml = computed(() => plantMapSvgRaw.replace(/^\s*<\?xml[^>]*\?>\s*/i, '').trim())
 import {
   animateTripodStep,
   createTripodRuntime,
@@ -44,9 +51,18 @@ const DURATION_MS = 1500
 const BARRIER_DURATION_MS = 3000
 const DARK_OPACITY = 0.28
 
-// 仅在 setup 阶段解析一次静态几何，运行时只改 runtime。
+// 仅在动画模式解析几何；原图模式跳过以减轻开销。
 const { gateGeometries, personGateGeometries, fullheightGateGeometries, barrierGateGeometries, wallLines, wallPolylines } =
-  parseSceneGeometry(plantMapSvgRaw)
+  SCENE_RAW_SVG_MODE
+    ? {
+        gateGeometries: {} as ReturnType<typeof parseSceneGeometry>['gateGeometries'],
+        personGateGeometries: {} as ReturnType<typeof parseSceneGeometry>['personGateGeometries'],
+        fullheightGateGeometries: {} as ReturnType<typeof parseSceneGeometry>['fullheightGateGeometries'],
+        barrierGateGeometries: {} as ReturnType<typeof parseSceneGeometry>['barrierGateGeometries'],
+        wallLines: [] as ReturnType<typeof parseSceneGeometry>['wallLines'],
+        wallPolylines: [] as ReturnType<typeof parseSceneGeometry>['wallPolylines'],
+      }
+    : parseSceneGeometry(plantMapSvgRaw)
 const gateRuntimes = ref<Record<string, TripodRuntime>>({})
 const personGateRuntimes = ref<Record<string, PersonRuntime>>({})
 const fullheightGateRuntimes = ref<Record<string, FullheightRuntime>>({})
@@ -152,51 +168,59 @@ const rotorOpacity = (gateId: string, idx: number) => {
 // - gate_fullheight_* -> fullheightAnimator
 // - gate_barrier_* -> barrierAnimator
 // - gate_person_* -> personAnimator
-watch(
-  () => ({ ...props.doorStates }),
-  (next, prev) => {
-    const prevState = prev ?? {}
-    Object.keys(next).forEach((doorId) => {
-      if (next[doorId] === prevState[doorId]) return
-      const flowDirection = props.doorFlowDirections[doorId] ?? 'out'
-      if (Object.prototype.hasOwnProperty.call(gateGeometries, doorId)) {
-        const geometry = gateGeometries[doorId]
-        if (!geometry) return
-        const runtime = ensureRuntime(doorId)
-        animateTripodStep(runtime, geometry, flowDirection, DURATION_MS)
-        return
-      }
-      if (Object.prototype.hasOwnProperty.call(fullheightGateGeometries, doorId)) {
-        const runtime = ensureFullheightRuntime(doorId)
-        animateFullheightStep(runtime, flowDirection, DURATION_MS)
-        return
-      }
-      if (Object.prototype.hasOwnProperty.call(barrierGateGeometries, doorId)) {
-        const runtime = ensureBarrierRuntime(doorId)
-        animateBarrierStep(runtime, flowDirection, BARRIER_DURATION_MS)
-        return
-      }
-      if (Object.prototype.hasOwnProperty.call(personGateGeometries, doorId)) {
-        const runtime = ensurePersonRuntime(doorId)
-        animatePersonStep(runtime, flowDirection, DURATION_MS)
-      }
-    })
-  },
-)
-
-onBeforeUnmount(() => {
-  Object.keys(gateRuntimes.value).forEach((doorId) => stopTripodAnimation(ensureRuntime(doorId)))
-  Object.keys(fullheightGateRuntimes.value).forEach((doorId) =>
-    stopFullheightAnimation(ensureFullheightRuntime(doorId)),
+if (SCENE_ANIMATION_ENABLED && !SCENE_RAW_SVG_MODE) {
+  watch(
+    () => ({ ...props.doorStates }),
+    (next, prev) => {
+      const prevState = prev ?? {}
+      Object.keys(next).forEach((doorId) => {
+        if (next[doorId] === prevState[doorId]) return
+        const flowDirection = props.doorFlowDirections[doorId] ?? 'out'
+        if (Object.prototype.hasOwnProperty.call(gateGeometries, doorId)) {
+          const geometry = gateGeometries[doorId]
+          if (!geometry) return
+          const runtime = ensureRuntime(doorId)
+          animateTripodStep(runtime, geometry, flowDirection, DURATION_MS)
+          return
+        }
+        if (Object.prototype.hasOwnProperty.call(fullheightGateGeometries, doorId)) {
+          const runtime = ensureFullheightRuntime(doorId)
+          animateFullheightStep(runtime, flowDirection, DURATION_MS)
+          return
+        }
+        if (Object.prototype.hasOwnProperty.call(barrierGateGeometries, doorId)) {
+          const runtime = ensureBarrierRuntime(doorId)
+          animateBarrierStep(runtime, flowDirection, BARRIER_DURATION_MS)
+          return
+        }
+        if (Object.prototype.hasOwnProperty.call(personGateGeometries, doorId)) {
+          const runtime = ensurePersonRuntime(doorId)
+          animatePersonStep(runtime, flowDirection, DURATION_MS)
+        }
+      })
+    },
   )
-  Object.keys(barrierGateRuntimes.value).forEach((doorId) => stopBarrierAnimation(ensureBarrierRuntime(doorId)))
-  Object.keys(personGateRuntimes.value).forEach((doorId) => stopPersonAnimation(ensurePersonRuntime(doorId)))
-})
+
+  onBeforeUnmount(() => {
+    Object.keys(gateRuntimes.value).forEach((doorId) => stopTripodAnimation(ensureRuntime(doorId)))
+    Object.keys(fullheightGateRuntimes.value).forEach((doorId) =>
+      stopFullheightAnimation(ensureFullheightRuntime(doorId)),
+    )
+    Object.keys(barrierGateRuntimes.value).forEach((doorId) => stopBarrierAnimation(ensureBarrierRuntime(doorId)))
+    Object.keys(personGateRuntimes.value).forEach((doorId) => stopPersonAnimation(ensurePersonRuntime(doorId)))
+  })
+}
 </script>
 
 <template>
-  <main class="cockpit-scene" aria-label="三辊闸机动画">
-    <div id="cockpit-map-mount" class="cockpit-scene__mount">
+  <main class="cockpit-scene" aria-label="厂区地图">
+    <div
+      v-if="SCENE_RAW_SVG_MODE"
+      id="cockpit-map-mount"
+      class="cockpit-scene__mount cockpit-scene__mount--raw"
+      v-html="plantMapSvgHtml"
+    />
+    <div v-else id="cockpit-map-mount" class="cockpit-scene__mount">
       <svg
         viewBox="0 0 1920 1080"
         preserveAspectRatio="none"
@@ -393,6 +417,13 @@ onBeforeUnmount(() => {
 .cockpit-scene__mount {
   width: 100%;
   height: 100%;
+}
+
+.cockpit-scene__mount--raw :deep(svg) {
+  width: 100%;
+  height: 100%;
+  display: block;
+  user-select: none;
 }
 
 .cockpit-scene__svg {

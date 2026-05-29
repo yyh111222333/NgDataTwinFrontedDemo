@@ -15,14 +15,55 @@ export type PanelConfig = {
   title: string
   side: 'left' | 'right'
   dim?: boolean
+  /** 组件内自带标题时设为 true */
+  hideTitle?: boolean
+  /** 侧栏内纵向占比，默认 1 */
+  flex?: number
+  /** 看板外观变体 */
+  variant?: 'default' | 'overview'
+  /** 内容区紧凑，不纵向撑满（如进场快捷预约） */
+  compact?: boolean
 }
 
 // 底部 4 个子系统入口
 export const bottomMenus: BottomMenu[] = [
-  { label: '人脸识别', url: 'http://localhost:5173/' },
-  { label: '车辆管控', url: 'http://localhost:5173/' },
-  { label: '行车管控', url: 'http://localhost:5173/' },
-  { label: '火灾算法', url: 'http://localhost:5173/' },
+  { label: '人员管控子系统', url: 'http://localhost:5173/' },
+  { label: '车辆管控子系统', url: 'http://localhost:5173/' },
+  { label: '行车管控子系统', url: 'http://localhost:5173/' },
+  { label: '智慧监控子系统', url: 'http://localhost:5173/' },
+]
+
+export type PanelTabItem = {
+  key: string
+  label: string
+}
+
+// 人员进出概况子 Tab
+export const personnelOverviewTabs: PanelTabItem[] = [
+  { key: 'region', label: '区域进出统计' },
+  { key: 'matter', label: '事项分布' },
+  { key: 'time', label: '进出时间分布' },
+]
+
+// 车辆进出概况子 Tab
+export const vehicleOverviewTabs: PanelTabItem[] = [
+  { key: 'channel', label: '通道进出统计' },
+  { key: 'matter', label: '事项分布' },
+  { key: 'time', label: '进出时间分布' },
+]
+
+// 行车监测概况子 Tab
+export const drivingMonitorTabs: PanelTabItem[] = [
+  { key: 'parking', label: '停车评分统计' },
+  { key: 'fatigue', label: '疲劳次数统计' },
+  { key: 'occlusion', label: '遮挡监测' },
+]
+
+// 智慧监控概况子 Tab
+export const smartMonitorTabs: PanelTabItem[] = [
+  { key: 'danger', label: '危险事件统计' },
+  { key: 'device', label: '设备在位统计' },
+  { key: 'storage', label: '存储状况监控' },
 ]
 
 // 中间 KPI 卡片（初始值），目前是为了稳定留的
@@ -35,11 +76,11 @@ export const middleStats: KpiItem[] = [
 
 // 左右 6 个看板配置（顺序=页面从上到下顺序）
 export const panels: PanelConfig[] = [
-  { id: 'left-overview', title: '运行总览', side: 'left' },
-  { id: 'left-device', title: '设备状态', side: 'left' },
-  { id: 'left-stat', title: '统计', side: 'left' },
-  { id: 'right-board', title: '事件看板', side: 'right' },
-  { id: 'right-list', title: '事件列表', side: 'right'  },
-  { id: 'right-risk', title: '风险预警', side: 'right' },
+  { id: 'left-overview', title: '系统运行总览', side: 'left', flex: 1.15, variant: 'overview' },
+  { id: 'left-device', title: '人员进出概况', side: 'left' },
+  { id: 'left-stat', title: '车辆进出概况', side: 'left' },
+  { id: 'right-board', title: '进场快捷预约', side: 'right', flex: 1.05, compact: true },
+  { id: 'right-list', title: '行车监测概况', side: 'right', flex: 0.85 },
+  { id: 'right-risk', title: '智慧监控概况', side: 'right', flex: 0.85 },
 ]
 

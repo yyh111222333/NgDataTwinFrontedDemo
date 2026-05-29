@@ -1,37 +1,83 @@
-<!-- 侧边看板容器：负责左右面板布局与插槽分发。 -->
+<!-- 侧边看板容器：左右各三列，与中间场景区并列。 -->
 <script setup lang="ts">
-// 左右看板容器：负责布局和遍历
 import CockpitPanelCard from '@/components/cockpit/CockpitPanelCard.vue'
 
 defineProps<{
-  leftPanels: Array<{ id: string; title: string; dim?: boolean }>
-  rightPanels: Array<{ id: string; title: string; dim?: boolean }>
+  leftPanels: Array<{
+    id: string
+    title: string
+    dim?: boolean
+    hideTitle?: boolean
+    flex?: number
+    variant?: 'default' | 'overview'
+    compact?: boolean
+  }>
+  rightPanels: Array<{
+    id: string
+    title: string
+    dim?: boolean
+    hideTitle?: boolean
+    flex?: number
+    variant?: 'default' | 'overview'
+    compact?: boolean
+  }>
 }>()
 </script>
 
 <template>
-  <div class="cockpit-overlay">
-    <!-- 左侧看板 -->
-    <aside class="cockpit-overlay__aside cockpit-overlay__aside--left">
-      <CockpitPanelCard v-for="panel in leftPanels" :key="panel.id" :title="panel.title" :dim="panel.dim">
-        <slot :name="panel.id" :panel="panel" />
-      </CockpitPanelCard>
-    </aside>
-    <!-- 右侧看板 -->
-    <aside class="cockpit-overlay__aside cockpit-overlay__aside--right">
-      <CockpitPanelCard v-for="panel in rightPanels" :key="panel.id" :title="panel.title" :dim="panel.dim">
-        <slot :name="panel.id" :panel="panel" />
-      </CockpitPanelCard>
-    </aside>
-    <!-- 预留插槽 -->
-    <slot />
-  </div>
+  <aside class="cockpit-aside cockpit-aside--left" aria-label="左侧看板">
+    <CockpitPanelCard
+      v-for="panel in leftPanels"
+      :key="panel.id"
+      :title="panel.title"
+      :dim="panel.dim"
+      :hide-title="panel.hideTitle"
+      :flex="panel.flex"
+      :variant="panel.variant"
+      :compact="panel.compact"
+    >
+      <slot :name="panel.id" :panel="panel" />
+    </CockpitPanelCard>
+  </aside>
+  <aside class="cockpit-aside cockpit-aside--right" aria-label="右侧看板">
+    <CockpitPanelCard
+      v-for="panel in rightPanels"
+      :key="panel.id"
+      :title="panel.title"
+      :dim="panel.dim"
+      :hide-title="panel.hideTitle"
+      :flex="panel.flex"
+      :variant="panel.variant"
+      :compact="panel.compact"
+    >
+      <slot :name="panel.id" :panel="panel" />
+    </CockpitPanelCard>
+  </aside>
 </template>
 
 <style scoped>
-.cockpit-overlay { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
-.cockpit-overlay__aside { position: absolute; display: flex; flex-direction: column; gap: 12px; width: 380px; top: 16px; bottom: 120px; pointer-events: all; }
-.cockpit-overlay__aside--left { left: 16px; }
-.cockpit-overlay__aside--right { right: 16px; }
-</style>
+.cockpit-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 10px 12px;
+  box-sizing: border-box;
+  min-height: 0;
+  pointer-events: all;
+  z-index: 2;
+}
 
+.cockpit-aside--left {
+  grid-column: 1;
+  grid-row: 1;
+  padding-left: 12px;
+  background: linear-gradient(90deg, rgba(5, 13, 24, 0.55) 0%, transparent 72%);
+}
+
+.cockpit-aside--right {
+  grid-column: 3;
+  grid-row: 1;
+  padding-right: 12px;
+  background: linear-gradient(270deg, rgba(5, 13, 24, 0.55) 0%, transparent 72%);
+}
+</style>
