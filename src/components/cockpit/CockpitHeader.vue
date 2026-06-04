@@ -25,7 +25,7 @@ withDefaults(
         alt="南京钢铁集团有限公司"
       />
       <p class="cockpit-header__logo-sub">
-        <span class="cockpit-header__logo-sub-text">中厚板卷厂板材事业部</span>
+        <span class="cockpit-header__logo-sub-text">板材事业部中厚板卷厂</span>
       </p>
     </div>
 
@@ -34,7 +34,7 @@ withDefaults(
       <span class="cockpit-header__brand-glow" aria-hidden="true" />
 
       <h1 class="cockpit-header__title">
-        <span class="cockpit-header__title-main">产品管理室数字化安全监管平台</span>
+        <span class="cockpit-header__title-main">中厚板卷厂成品库数字化监控平台</span>
       </h1>
     </div>
 
