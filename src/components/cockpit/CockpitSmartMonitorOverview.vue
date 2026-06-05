@@ -6,7 +6,7 @@ import { smartMonitorTabs } from '@/config/cockpit'
 </script>
 
 <template>
-  <CockpitPanelTabs :tabs="smartMonitorTabs" ariaLabel="智慧监控概况" :bodyMinHeight="200">
+  <CockpitPanelTabs :tabs="smartMonitorTabs" ariaLabel="智慧监控概况">
     <template #default="{ activeTab }">
       <DangerEventStatsChart v-if="activeTab === 'danger'" />
       <div v-else class="smart-overview__placeholder">

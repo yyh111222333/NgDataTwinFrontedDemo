@@ -113,7 +113,7 @@ withDefaults(
   flex: 1;
   min-height: 0;
   padding: 10px 12px 12px;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .cockpit-panel-card__corner {

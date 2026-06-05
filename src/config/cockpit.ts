@@ -79,8 +79,8 @@ export const panels: PanelConfig[] = [
   { id: 'left-overview', title: '系统运行总览', side: 'left', flex: 1.15, variant: 'overview' },
   { id: 'left-device', title: '人员进出概况', side: 'left' },
   { id: 'left-stat', title: '车辆进出概况', side: 'left' },
-  { id: 'right-board', title: '进场快捷预约', side: 'right', flex: 1.05, compact: true },
-  { id: 'right-list', title: '行车监测概况', side: 'right', flex: 0.85 },
-  { id: 'right-risk', title: '智慧监控概况', side: 'right', flex: 0.85 },
+  { id: 'right-board', title: '进场快捷预约', side: 'right', flex: 0.92, compact: true },
+  { id: 'right-list', title: '行车监测概况', side: 'right', flex: 1.08 },
+  { id: 'right-risk', title: '智慧监控概况', side: 'right', flex: 1.08 },
 ]
 

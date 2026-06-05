@@ -94,7 +94,7 @@ const chartOption = computed(() => {
       top: 'middle',
       itemWidth: 8,
       itemHeight: 8,
-      itemGap: 10,
+      itemGap: 6,
       textStyle: {
         color: 'rgba(200, 238, 252, 0.82)',
         fontSize: 10,
@@ -176,7 +176,7 @@ const chartOption = computed(() => {
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  gap: 6px;
+  gap: 4px;
 }
 
 .parking-score-chart__toolbar {
@@ -206,8 +206,9 @@ const chartOption = computed(() => {
 
 .parking-score-chart__period-text {
   font-size: 11px;
-  letter-spacing: 0.06em;
-  color: rgba(200, 238, 252, 0.88);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(210, 245, 255, 0.9);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -215,35 +216,41 @@ const chartOption = computed(() => {
 
 .parking-score-chart__granularity {
   display: inline-flex;
-  gap: 2px;
+  gap: 3px;
   padding: 2px;
   border-radius: 4px;
-  background: rgba(8, 28, 48, 0.55);
-  border: 1px solid rgba(72, 160, 200, 0.2);
+  border: 1px solid rgba(48, 220, 255, 0.16);
+  background: rgba(4, 12, 22, 0.55);
+  flex-shrink: 0;
 }
 
 .parking-score-chart__gran-btn {
-  padding: 3px 8px;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  color: rgba(160, 210, 230, 0.65);
-  background: transparent;
-  border: none;
+  padding: 4px 8px;
+  border: 1px solid transparent;
   border-radius: 3px;
+  background: transparent;
+  color: rgba(160, 200, 220, 0.75);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   cursor: pointer;
   transition:
-    color 0.2s,
-    background 0.2s;
+    color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .parking-score-chart__gran-btn:hover:not(:disabled) {
-  color: rgba(200, 238, 252, 0.9);
+  color: rgba(230, 248, 255, 0.95);
+  background: rgba(48, 200, 255, 0.08);
 }
 
 .parking-score-chart__gran-btn.is-active {
-  color: #0a1e30;
-  background: linear-gradient(180deg, #7ef0ff 0%, #3cc8e8 100%);
-  box-shadow: 0 0 10px rgba(92, 232, 255, 0.35);
+  color: #f0fcff;
+  border-color: rgba(48, 200, 255, 0.35);
+  background: linear-gradient(180deg, rgba(92, 232, 255, 0.22) 0%, rgba(48, 200, 255, 0.06) 100%);
+  box-shadow: 0 0 10px rgba(48, 200, 255, 0.12);
 }
 
 .parking-score-chart__gran-btn:disabled {
@@ -254,13 +261,13 @@ const chartOption = computed(() => {
 .parking-score-chart__main {
   position: relative;
   flex: 1;
-  min-height: 120px;
+  min-height: 0;
 }
 
 .parking-score-chart__echart {
   width: 100%;
   height: 100%;
-  min-height: 120px;
+  min-height: 0;
 }
 
 .parking-score-chart__state {

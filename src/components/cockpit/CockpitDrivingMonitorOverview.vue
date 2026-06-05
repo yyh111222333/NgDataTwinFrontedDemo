@@ -6,7 +6,7 @@ import { drivingMonitorTabs } from '@/config/cockpit'
 </script>
 
 <template>
-  <CockpitPanelTabs :tabs="drivingMonitorTabs" ariaLabel="行车监测概况" :bodyMinHeight="200">
+  <CockpitPanelTabs :tabs="drivingMonitorTabs" ariaLabel="行车监测概况">
     <template #default="{ activeTab }">
       <ParkingScoreStatsChart v-if="activeTab === 'parking'" />
       <div v-else class="driving-overview__placeholder">

@@ -81,7 +81,7 @@ const activeLabel = computed(
 
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   min-height: 0;
   height: 100%;
   color: #e8fbff;
@@ -217,7 +217,7 @@ const activeLabel = computed(
   align-items: stretch;
   justify-content: stretch;
   gap: 0;
-  padding: 6px 8px 8px;
+  padding: 4px 6px 6px;
 }
 
 .panel-tabs__chart-frame:not(.is-custom)::before {
