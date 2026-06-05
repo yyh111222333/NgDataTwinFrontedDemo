@@ -2,7 +2,7 @@ import type { ApiResponse } from '@/types/dashboard'
 
 export type VehicleAccessGranularity = 'day' | 'month' | 'year'
 
-/** 车辆通道：六号门～十一号门 */
+/** 车辆通道：六号门～十二号门 */
 export const VEHICLE_ACCESS_CHANNELS = [
   { id: '6', name: '六号门' },
   { id: '7', name: '七号门' },
@@ -10,6 +10,7 @@ export const VEHICLE_ACCESS_CHANNELS = [
   { id: '9', name: '九号门' },
   { id: '10', name: '十号门' },
   { id: '11', name: '十一号门' },
+  { id: '12', name: '十二号门' },
 ] as const
 
 export type VehicleChannelId = (typeof VEHICLE_ACCESS_CHANNELS)[number]['id']

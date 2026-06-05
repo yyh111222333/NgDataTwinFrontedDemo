@@ -5,7 +5,8 @@ import CockpitQuickAppointment from '@/components/cockpit/CockpitQuickAppointmen
 import CockpitDebugPanel from '@/components/cockpit/CockpitDebugPanel.vue'
 import CockpitHeader from '@/components/cockpit/CockpitHeader.vue'
 import CockpitKpiStats from '@/components/cockpit/CockpitKpiStats.vue'
-import CockpitPanelTabs from '@/components/cockpit/CockpitPanelTabs.vue'
+import CockpitDrivingMonitorOverview from '@/components/cockpit/CockpitDrivingMonitorOverview.vue'
+import CockpitSmartMonitorOverview from '@/components/cockpit/CockpitSmartMonitorOverview.vue'
 import CockpitVehicleOverview from '@/components/cockpit/CockpitVehicleOverview.vue'
 import CockpitPersonnelOverview from '@/components/cockpit/CockpitPersonnelOverview.vue'
 import CockpitSceneMount from '@/components/cockpit/CockpitSceneMount.vue'
@@ -14,10 +15,8 @@ import { getDashboardOverview, getDeviceStatusOptions } from '@/api/dashboard'
 import { useBackendHealth } from '@/composables/useBackendHealth'
 import {
   bottomMenus,
-  drivingMonitorTabs,
   middleStats,
   panels,
-  smartMonitorTabs,
 } from '@/config/cockpit'
 import CockpitShell from '@/layouts/CockpitShell.vue'
 import plantMapSvgRaw from '@/assets/厂区地图_画板 1.svg?raw'
@@ -404,10 +403,10 @@ const handleToggleSelectedDoorFlowDirection = () => {
             <CockpitVehicleOverview />
           </template>
           <template #right-list>
-            <CockpitPanelTabs :tabs="drivingMonitorTabs" ariaLabel="行车监测概况" :bodyMinHeight="72" />
+            <CockpitDrivingMonitorOverview />
           </template>
           <template #right-risk>
-            <CockpitPanelTabs :tabs="smartMonitorTabs" ariaLabel="智慧监控概况" :bodyMinHeight="72" />
+            <CockpitSmartMonitorOverview />
           </template>
           <template #right-board>
             <CockpitQuickAppointment />
