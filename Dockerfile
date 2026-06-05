@@ -1,4 +1,4 @@
-# 构建前端 docker build -t ngdtdemo-frontend:1.0.2 \
+# 构建前端 docker build -t ngdtdemo-frontend:1.0.2 .
 
 FROM node:20-alpine AS builder
 
@@ -9,7 +9,8 @@ ARG NPM_REGISTRY=https://registry.npmmirror.com
 RUN npm config set registry ${NPM_REGISTRY} \
     && if [ -f package-lock.json ]; then npm ci --no-audit --prefer-offline; else npm install --no-audit --prefer-offline; fi
 
-ARG VITE_API_BASE_URL=http://localhost:8084/api
+# 留空表示同源请求，由 nginx 将 /api、/health 反代到后端
+ARG VITE_API_BASE_URL=
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 COPY . .

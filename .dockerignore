@@ -28,6 +28,3 @@ docker-compose.yml
 
 # README 文件
 README.md
-
-# TypeScript 声明文件 (通常不需要在最终生产镜像中)
-env.d.ts
