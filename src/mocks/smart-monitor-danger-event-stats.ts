@@ -30,7 +30,8 @@ export function buildDangerEventStatsMock(
   const scale = scaleCountByGranularity(granularity)
   const seed = seedFromString(`danger-event:${granularity}:${anchor}`)
 
-  const rawCounts = DANGER_EVENT_TYPES.map((_, idx) => {
+  const rawCounts = DANGER_EVENT_TYPES.map((evt, idx) => {
+    if (HIGH_RISK_IDS.has(evt.id)) return 0
     const wobble = 0.7 + pseudo(seed, idx + 5) * 0.6
     return Math.max(1, Math.round(EVENT_BASE_WEIGHTS[idx]! * wobble * scale))
   })
@@ -48,10 +49,6 @@ export function buildDangerEventStatsMock(
     }
   })
 
-  const highRiskCount = items
-    .filter((it) => HIGH_RISK_IDS.has(it.eventId))
-    .reduce((s, it) => s + it.count, 0)
-
   return {
     granularity,
     anchor,
@@ -60,7 +57,7 @@ export function buildDangerEventStatsMock(
     items,
     summary: {
       totalCount,
-      highRiskCount,
+      highRiskCount: 0,
     },
   }
 }

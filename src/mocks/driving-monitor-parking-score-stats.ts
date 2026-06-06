@@ -11,11 +11,10 @@ import {
   type ParkingScoreStatsData,
 } from '@/types/driving-monitor'
 
-/** 各档位 Mock 基数（次），总和约 100% */
-const GRADE_BASE_WEIGHTS = [32, 28, 22, 12, 6] as const
+/** 各档位 Mock 基数（次），偏重优秀/良好以支撑平均分 91 */
+const GRADE_BASE_WEIGHTS = [48, 34, 12, 4, 2] as const
 
-/** 各档位 Mock 均分（用于计算 summary.averageScore） */
-const GRADE_AVG_SCORES = [95, 84, 74, 64, 48] as const
+const TARGET_AVERAGE_SCORE = 91
 
 const scaleCountByGranularity = (granularity: DrivingMonitorGranularity) => {
   if (granularity === 'day') return 1
@@ -37,11 +36,6 @@ export function buildParkingScoreStatsMock(
   })
 
   const totalCount = rawCounts.reduce((s, n) => s + n, 0)
-  const weightedScore = rawCounts.reduce(
-    (s, count, idx) => s + count * GRADE_AVG_SCORES[idx]!,
-    0,
-  )
-  const averageScore = Math.round((weightedScore / totalCount) * 10) / 10
 
   const items = PARKING_SCORE_GRADES.map((grade, idx) => {
     const count = rawCounts[idx]!
@@ -62,7 +56,7 @@ export function buildParkingScoreStatsMock(
     items,
     summary: {
       totalCount,
-      averageScore,
+      averageScore: TARGET_AVERAGE_SCORE,
     },
   }
 }
