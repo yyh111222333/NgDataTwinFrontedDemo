@@ -20,8 +20,7 @@ export function buildVehicleChannelStatsMock(
   const items = VEHICLE_ACCESS_CHANNELS.map((channel, idx) => {
     const base = 28 + idx * 9
     const enterCount = Math.max(1, Math.round((base + pseudo(seed, idx * 2 + 7) * 65) * scale))
-    const exitRaw = Math.round((base - 3 + pseudo(seed, idx * 2 + 11) * 60) * scale)
-    const exitCount = Math.min(Math.max(0, exitRaw), enterCount)
+    const exitCount = enterCount
     return {
       channelId: channel.id,
       channelName: channel.name,

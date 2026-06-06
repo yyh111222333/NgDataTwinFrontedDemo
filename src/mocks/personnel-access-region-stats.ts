@@ -26,8 +26,7 @@ export function buildPersonnelRegionStatsMock(
   const items = PERSONNEL_ACCESS_REGIONS.map((region, idx) => {
     const base = 40 + idx * 11
     const enterCount = Math.max(1, Math.round((base + pseudo(seed, idx * 2 + 1) * 80) * scale))
-    const exitRaw = Math.round((base - 5 + pseudo(seed, idx * 2 + 2) * 75) * scale)
-    const exitCount = Math.min(Math.max(0, exitRaw), enterCount)
+    const exitCount = enterCount
     return {
       regionId: region.id,
       regionName: region.name,
