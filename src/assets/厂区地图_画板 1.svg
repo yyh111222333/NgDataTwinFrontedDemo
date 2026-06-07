@@ -106,11 +106,11 @@
         font-size: 14.21px;
       }
 
-      .cls-51, .cls-52, .cls-53 {
+      .cls-51, .cls-52, .cls-53, .cls-54 {
         font-family: SimHei, SimHei;
       }
 
-      .cls-51, .cls-53 {
+      .cls-51, .cls-53, .cls-54 {
         fill: #bfbfbf;
       }
 
@@ -128,6 +128,10 @@
 
       .cls-20, .cls-23 {
         fill: #001123;
+      }
+
+      .cls-53 {
+        font-size: 11.92px;
       }
 
       .cls-21 {
@@ -178,7 +182,7 @@
         stroke-width: .1px;
       }
 
-      .cls-53 {
+      .cls-54 {
         font-size: 10.12px;
       }
 
@@ -221,15 +225,36 @@
     <text class="cls-52" transform="translate(429.04 289.13)"><tspan x="0" y="0">12号门</tspan></text>
     <text class="cls-51" transform="translate(1275.38 565.19)"><tspan x="0" y="0">K区产品管理室</tspan></text>
     <text class="cls-51" transform="translate(1272.14 439.79)"><tspan x="0" y="0">L区产品管理室</tspan></text>
-    <text class="cls-51" transform="translate(1275.38 692.84)"><tspan x="0" y="0">J区产品管理室</tspan></text>
+    <text class="cls-51" transform="translate(1275.39 690.12)"><tspan x="0" y="0">J区产品管理室</tspan></text>
     <text class="cls-51" transform="translate(861.42 691.73)"><tspan x="0" y="0">D区产品管理室</tspan></text>
     <text class="cls-51" transform="translate(860.72 561.53)"><tspan x="0" y="0">E区产品管理室</tspan></text>
+    <text class="cls-53" transform="translate(860.61 521.21)"><tspan x="0" y="0">E01</tspan></text>
+    <text class="cls-53" transform="translate(886.38 473.95)"><tspan x="0" y="0">F01</tspan></text>
+    <text class="cls-53" transform="translate(920.59 473.82)"><tspan x="0" y="0">F02</tspan></text>
+    <text class="cls-53" transform="translate(855.07 652.4)"><tspan x="0" y="0">D01</tspan></text>
+    <text class="cls-53" transform="translate(952.67 521.08)"><tspan x="0" y="0">E02</tspan></text>
+    <text class="cls-53" transform="translate(932.26 652.4)"><tspan x="0" y="0">D02</tspan></text>
+    <text class="cls-53" transform="translate(1065.17 652.27)"><tspan x="0" y="0">D03</tspan></text>
+    <text class="cls-53" transform="translate(925.81 602.77)"><tspan x="0" y="0">E04</tspan></text>
+    <text class="cls-53" transform="translate(1067.35 602.64)"><tspan x="0" y="0">E03</tspan></text>
+    <text class="cls-53" transform="translate(1224.05 528)"><tspan x="0" y="0">K01</tspan></text>
+    <text class="cls-53" transform="translate(1237.67 652.13)"><tspan x="0" y="0">J01</tspan></text>
+    <text class="cls-53" transform="translate(1281.27 652.27)"><tspan x="0" y="0">J02</tspan></text>
+    <text class="cls-53" transform="translate(1353.61 652)"><tspan x="0" y="0">J03</tspan></text>
+    <text class="cls-53" transform="translate(1392.34 652.4)"><tspan x="0" y="0">J04</tspan></text>
+    <text class="cls-53" transform="translate(1289.69 527.87)"><tspan x="0" y="0">K02</tspan></text>
+    <text class="cls-53" transform="translate(1360.34 527.87)"><tspan x="0" y="0">K03</tspan></text>
+    <text class="cls-53" transform="translate(1237.67 602.77)"><tspan x="0" y="0">K07</tspan></text>
+    <text class="cls-53" transform="translate(1279.56 602.77)"><tspan x="0" y="0">K06</tspan></text>
+    <text class="cls-53" transform="translate(1329.25 602.51)"><tspan x="0" y="0">K05</tspan></text>
+    <text class="cls-53" transform="translate(1385.89 602.38)"><tspan x="0" y="0">K04</tspan></text>
+    <text class="cls-53" transform="translate(855.07 602.77)"><tspan x="0" y="0">E05</tspan></text>
     <text class="cls-51" transform="translate(505.05 429.86) scale(.96 1)"><tspan x="0" y="0">A区</tspan><tspan x="-24.86" y="17.05">产品管理室</tspan></text>
-    <text class="cls-53" transform="translate(853.89 861.81)"><tspan x="0" y="0">汽车道闸</tspan></text>
-    <text class="cls-53" transform="translate(732.58 860.79)"><tspan x="0" y="0">人脸门禁</tspan></text>
-    <text class="cls-53" transform="translate(632.84 860.66)"><tspan x="0" y="0">火车道管控门</tspan></text>
-    <text class="cls-53" transform="translate(546.84 860.61)"><tspan x="0" y="0">联锁管控门</tspan></text>
-    <text class="cls-53" transform="translate(989.83 860.35)"><tspan x="0" y="0">火车道闸</tspan></text>
+    <text class="cls-54" transform="translate(853.89 861.81)"><tspan x="0" y="0">汽车道闸</tspan></text>
+    <text class="cls-54" transform="translate(732.58 860.79)"><tspan x="0" y="0">人脸门禁</tspan></text>
+    <text class="cls-54" transform="translate(632.84 860.66)"><tspan x="0" y="0">火车道管控门</tspan></text>
+    <text class="cls-54" transform="translate(546.84 860.61)"><tspan x="0" y="0">联锁管控门</tspan></text>
+    <text class="cls-54" transform="translate(989.83 860.35)"><tspan x="0" y="0">火车道闸</tspan></text>
     <text class="cls-51" transform="translate(921.06 439.79) scale(.96 1)"><tspan x="0" y="0">F区热处理区间</tspan></text>
     <text class="cls-51" transform="translate(672.23 439.79) scale(.96 1)"><tspan x="0" y="0">F区半成品货位区</tspan></text>
     <polyline class="cls-1" points="783.62 771.02 778.58 771.02 778.58 726.11"/>
