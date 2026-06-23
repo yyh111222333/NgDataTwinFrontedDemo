@@ -27,10 +27,10 @@ export type PanelConfig = {
 
 // 底部 4 个子系统入口
 export const bottomMenus: BottomMenu[] = [
-  { label: '人员管控子系统', url: 'http://localhost:5173/' },
-  { label: '车辆管控子系统', url: 'http://localhost:5173/' },
-  { label: '行车管控子系统', url: 'http://localhost:5173/' },
-  { label: '智慧监控子系统', url: 'http://localhost:5173/' },
+  { label: '人员管控子系统', url: 'http://10.13.0.8:18050/s/personnel/' },
+  { label: '车辆管控子系统', url: 'http://10.13.0.8:18050/s/vehicle/' },
+  { label: '行车管控子系统', url: 'http://10.13.0.8:18050/s/crane/' },
+  { label: '智慧监控子系统', url: 'http://10.13.0.8:18050/s/monitor/' },
 ]
 
 export type PanelTabItem = {
