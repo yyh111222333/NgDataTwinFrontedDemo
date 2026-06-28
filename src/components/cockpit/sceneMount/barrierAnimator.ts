@@ -91,23 +91,23 @@ export const animateBarrierStep = (
   _flowDirection: DoorFlowDirection,
   durationMs: number,
   leafEl?: SVGGraphicsElement | null,
+  open = true,
 ) => {
   if (!runtime.ready) return
   stopBarrierAnimation(runtime)
   const start = performance.now()
-  const from = runtime.startScaleX
-  const to = runtime.endScaleX
+  const from = runtime.scaleX
+  const to = open ? runtime.endScaleX : runtime.startScaleX
 
   const step = (now: number) => {
     const raw = Math.min(1, (now - start) / durationMs)
-    const phase = raw <= 0.5 ? raw / 0.5 : (1 - raw) / 0.5
-    runtime.scaleX = from + (to - from) * phase
+    runtime.scaleX = from + (to - from) * raw
     applyBarrierLeafTransform(runtime, leafEl)
     if (raw < 1) {
       runtime.rafId = requestAnimationFrame(step)
       return
     }
-    runtime.scaleX = from
+    runtime.scaleX = to
     applyBarrierLeafTransform(runtime, leafEl)
     runtime.rafId = null
   }

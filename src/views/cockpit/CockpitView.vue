@@ -13,9 +13,11 @@ import CockpitSceneMount from '@/components/cockpit/CockpitSceneMount.vue'
 import CockpitSidePanels from '@/components/cockpit/CockpitSidePanels.vue'
 import { getDashboardOverview, getDeviceStatusOptions } from '@/api/dashboard'
 import { useGateAccessEvents } from '@/composables/useGateAccessEvents'
+import { useRelayDoorStatus } from '@/composables/useRelayDoorStatus'
 import { useBackendHealth } from '@/composables/useBackendHealth'
 import { applyGateAccessEvents } from '@/utils/apply-gate-access-event'
 import type { GateAccessEvent } from '@/types/gate-access'
+import type { RelayDoorStatusSnapshot } from '@/types/relay-door-status'
 import {
   DASHBOARD_DEVICE_REGIONS,
   DASHBOARD_DEVICE_TYPES,
@@ -64,6 +66,7 @@ const dataSource = ref<'mock' | 'api'>('mock')
 const apiLoading = ref(false)
 const apiError = ref<string | null>(null)
 const mockRefreshTick = ref(0)
+const relayDoorStatusOnline = ref(false)
 
 type DashboardViewState = {
   onlineAccess: number
@@ -388,6 +391,31 @@ const prependGateAccessEvents = (events: GateAccessEvent[]) => {
   recentGateAccessEvents.value = [...events, ...recentGateAccessEvents.value].slice(0, 20)
 }
 
+const mergeRelayDoorSnapshot = (
+  state: DashboardViewState,
+  snapshot: RelayDoorStatusSnapshot,
+): DashboardViewState => ({
+  ...state,
+  doorStates: {
+    ...state.doorStates,
+    ...snapshot.doorStates,
+  },
+  doorFlowDirections: {
+    ...state.doorFlowDirections,
+    ...snapshot.doorFlowDirections,
+  },
+})
+
+const applyRelayDoorStatusToViewState = (snapshot: RelayDoorStatusSnapshot) => {
+  relayDoorStatusOnline.value = snapshot.mappedCount > 0
+  prependGateAccessEvents(snapshot.events)
+  currentState.value = mergeRelayDoorSnapshot(currentState.value, snapshot)
+
+  if (dataSource.value === 'mock') {
+    mockState.value = mergeRelayDoorSnapshot(mockState.value, snapshot)
+  }
+}
+
 const applyGateEventsToViewState = (events: GateAccessEvent[]) => {
   if (events.length === 0) return
   prependGateAccessEvents(events)
@@ -407,7 +435,18 @@ const applyGateEventsToViewState = (events: GateAccessEvent[]) => {
   }
 }
 
-const gateAccessPollingEnabled = computed(() => true)
+const relayDoorStatusPollingEnabled = computed(() => true)
+const gateAccessPollingEnabled = computed(() => !relayDoorStatusOnline.value || dataSource.value === 'api')
+
+useRelayDoorStatus({
+  enabled: relayDoorStatusPollingEnabled,
+  validDoorIds: VALID_SCENE_DOOR_IDS,
+  onUpdate: applyRelayDoorStatusToViewState,
+  onError: (error) => {
+    relayDoorStatusOnline.value = false
+    apiError.value = error instanceof Error ? error.message : String(error)
+  },
+})
 
 useGateAccessEvents({
   enabled: gateAccessPollingEnabled,
