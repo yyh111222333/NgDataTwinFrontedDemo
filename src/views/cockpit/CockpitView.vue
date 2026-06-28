@@ -34,8 +34,10 @@ import type {
   RailStatus,
 } from '@/types/dashboard'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
 const { backendOnline, healthError } = useBackendHealth()
+const router = useRouter()
 
 // 从 SVG 元素 id 推断门 id（去掉可动部件后缀，保留门级标识）。
 const extractDoorIdsFromSvg = (svgRaw: string): string[] => {
@@ -318,7 +320,7 @@ const activeMenu = ref<string | null>(null)
 
 const handleBottomMenuClick = (item: (typeof bottomMenus)[number]) => {
   activeMenu.value = item.label
-  window.location.href = item.url
+  void router.push({ name: 'subsystem', params: { id: item.id } })
 }
 
 const handleMockOnlineAccessUpdate = (value: number) => {

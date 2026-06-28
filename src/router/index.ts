@@ -12,6 +12,11 @@ const router = createRouter({
       name: 'cockpit',
       component: () => import('../views/cockpit/CockpitView.vue'),
     },
+    {
+      path: '/subsystem/:id',
+      name: 'subsystem',
+      component: () => import('../views/subsystem/SubsystemFrameView.vue'),
+    },
   ],
 })
 
