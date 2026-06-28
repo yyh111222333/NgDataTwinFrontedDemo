@@ -32,12 +32,6 @@ withDefaults(
   >
     <header v-if="!hideTitle" class="cockpit-panel-card__header">
       <span class="cockpit-panel-card__accent" aria-hidden="true" />
-      <span v-if="variant === 'overview'" class="cockpit-panel-card__icon" aria-hidden="true">
-        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="2" y="3" width="12" height="10" rx="1" stroke="currentColor" stroke-width="1.2" />
-          <path d="M4 10V8.5L6 7l2 2 3-3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </span>
       <h3 class="cockpit-panel-card__title">{{ title }}</h3>
     </header>
     <div class="cockpit-panel-card__body">
@@ -205,21 +199,6 @@ withDefaults(
 
 .cockpit-panel-card.is-overview .cockpit-panel-card__corner {
   opacity: 0.55;
-}
-
-.cockpit-panel-card__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  color: rgba(180, 240, 255, 0.9);
-  flex-shrink: 0;
-}
-
-.cockpit-panel-card__icon svg {
-  width: 16px;
-  height: 16px;
 }
 
 </style>

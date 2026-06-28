@@ -65,3 +65,61 @@ export interface PersonnelRegionStatsQuery {
   granularity: PersonnelAccessGranularity
   anchor: string
 }
+
+/** 人员进厂事项（饼图固定 5 类） */
+export const PERSONNEL_MATTER_TYPES = [
+  { id: 'work', name: '进厂作业', color: '#5ce8ff' },
+  { id: 'visit', name: '参观访问', color: '#4ade80' },
+  { id: 'maintain', name: '设备维护', color: '#e8c84a' },
+  { id: 'logistics', name: '物资运送', color: '#f59e0b' },
+  { id: 'other', name: '其他', color: '#a78bfa' },
+] as const
+
+export type PersonnelMatterId = (typeof PERSONNEL_MATTER_TYPES)[number]['id']
+
+export interface PersonnelMatterStatItem {
+  matterId: PersonnelMatterId
+  matterName: string
+  count: number
+  percentage: number
+}
+
+export interface PersonnelMatterStatsData {
+  granularity: PersonnelAccessGranularity
+  anchor: string
+  periodLabel: string
+  periodStart: string
+  periodEnd: string
+  granularityOptions: PersonnelGranularityOption[]
+  items: PersonnelMatterStatItem[]
+  summary: { totalCount: number }
+}
+
+export type PersonnelMatterStatsApiResponse = ApiResponse<PersonnelMatterStatsData>
+export type PersonnelMatterStatsQuery = PersonnelRegionStatsQuery
+
+export interface PersonnelTimeStatItem {
+  slotId: string
+  slotLabel: string
+  enterCount: number
+  exitCount: number
+}
+
+export interface PersonnelTimeStatsData {
+  granularity: PersonnelAccessGranularity
+  anchor: string
+  periodLabel: string
+  periodStart: string
+  periodEnd: string
+  granularityOptions: PersonnelGranularityOption[]
+  items: PersonnelTimeStatItem[]
+  summary: {
+    enterTotal: number
+    exitTotal: number
+    peakSlotLabel: string
+    peakTotal: number
+  }
+}
+
+export type PersonnelTimeStatsApiResponse = ApiResponse<PersonnelTimeStatsData>
+export type PersonnelTimeStatsQuery = PersonnelRegionStatsQuery

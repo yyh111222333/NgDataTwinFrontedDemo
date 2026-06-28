@@ -1,53 +1,29 @@
-import {
-  ACCESS_GRANULARITY_OPTIONS,
-  buildAccessPeriod,
-  defaultAccessStatsAnchors,
-  pseudo,
-  scaleByGranularity,
-  seedFromString,
-} from '@/mocks/access-stats-shared'
-import {
-  PERSONNEL_ACCESS_REGIONS,
-  type PersonnelAccessGranularity,
-  type PersonnelRegionStatsData,
-} from '@/types/personnel-access'
+import { defaultAccessStatsAnchors } from '@/mocks/access-stats-shared'
+import { getPersonnelAccessSnapshot } from '@/mocks/personnel-access-snapshot'
+import type { PersonnelAccessGranularity, PersonnelRegionStatsData } from '@/types/personnel-access'
 
 /**
  * 本地测试用 Mock：与后端约定字段一致，可直接 import 做图表联调。
+ * 区域 / 事项 / 时间三个 Tab 共用同一快照，进出总量一致。
  */
 export function buildPersonnelRegionStatsMock(
   granularity: PersonnelAccessGranularity,
   anchor: string,
 ): PersonnelRegionStatsData {
-  const period = buildAccessPeriod(granularity, anchor)
-  const scale = scaleByGranularity(granularity)
-  const seed = seedFromString(`${granularity}:${anchor}`)
-
-  const items = PERSONNEL_ACCESS_REGIONS.map((region, idx) => {
-    const base = 40 + idx * 11
-    const enterCount = Math.max(1, Math.round((base + pseudo(seed, idx * 2 + 1) * 80) * scale))
-    const exitCount = enterCount
-    return {
-      regionId: region.id,
-      regionName: region.name,
-      enterCount,
-      exitCount,
-    }
-  })
-
-  const enterTotal = items.reduce((s, it) => s + it.enterCount, 0)
-  const exitTotal = items.reduce((s, it) => s + it.exitCount, 0)
+  const snapshot = getPersonnelAccessSnapshot(granularity, anchor)
 
   return {
-    granularity,
-    anchor,
-    ...period,
-    granularityOptions: [...ACCESS_GRANULARITY_OPTIONS],
-    items,
+    granularity: snapshot.granularity,
+    anchor: snapshot.anchor,
+    periodLabel: snapshot.periodLabel,
+    periodStart: snapshot.periodStart,
+    periodEnd: snapshot.periodEnd,
+    granularityOptions: snapshot.granularityOptions,
+    items: snapshot.regionItems,
     summary: {
-      enterTotal,
-      exitTotal,
-      netIn: enterTotal - exitTotal,
+      enterTotal: snapshot.enterTotal,
+      exitTotal: snapshot.exitTotal,
+      netIn: snapshot.enterTotal - snapshot.exitTotal,
     },
   }
 }

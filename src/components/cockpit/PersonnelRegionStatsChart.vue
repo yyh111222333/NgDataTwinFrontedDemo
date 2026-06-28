@@ -1,7 +1,7 @@
 <!-- 人员进出 — 区域进出统计柱状图（科技风双柱：进入/离开） -->
 <script setup lang="ts">
 import { getPersonnelRegionStats } from '@/api/personnel-access'
-import { defaultPersonnelRegionStatsAnchors } from '@/mocks/personnel-access-region-stats'
+import { resolveAccessStatsAnchor } from '@/mocks/access-stats-shared'
 import type { PersonnelAccessGranularity, PersonnelRegionStatsData } from '@/types/personnel-access'
 import { BarChart } from 'echarts/charts'
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
@@ -13,21 +13,17 @@ import VChart from 'vue-echarts'
 
 use([BarChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer])
 
-const granularity = ref<PersonnelAccessGranularity>('day')
+const granularity = defineModel<PersonnelAccessGranularity>('granularity', { default: 'day' })
 const statsData = ref<PersonnelRegionStatsData | null>(null)
 const loading = ref(false)
 const loadError = ref<string | null>(null)
-
-const anchors = defaultPersonnelRegionStatsAnchors()
-
-const resolveAnchor = (g: PersonnelAccessGranularity) => anchors[g]
 
 const loadStats = async () => {
   loading.value = true
   loadError.value = null
   try {
     statsData.value = await getPersonnelRegionStats(
-      { granularity: granularity.value, anchor: resolveAnchor(granularity.value) },
+      { granularity: granularity.value!, anchor: resolveAccessStatsAnchor(granularity.value!) },
       { useMock: true },
     )
   } catch (e) {

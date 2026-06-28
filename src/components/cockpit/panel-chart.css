@@ -1,0 +1,147 @@
+.panel-chart {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  gap: 4px;
+}
+
+.panel-chart__toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 2px 0;
+}
+
+.panel-chart__period {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.panel-chart__period-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #5ce8ff;
+  box-shadow: 0 0 8px rgba(92, 232, 255, 0.8);
+  flex-shrink: 0;
+}
+
+.panel-chart__period-text {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(210, 245, 255, 0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.panel-chart__granularity {
+  display: inline-flex;
+  gap: 3px;
+  padding: 2px;
+  border-radius: 4px;
+  border: 1px solid rgba(48, 220, 255, 0.16);
+  background: rgba(4, 12, 22, 0.55);
+  flex-shrink: 0;
+}
+
+.panel-chart__gran-btn {
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: rgba(160, 200, 220, 0.75);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.panel-chart__gran-btn:hover:not(:disabled) {
+  color: rgba(230, 248, 255, 0.95);
+  background: rgba(48, 200, 255, 0.08);
+}
+
+.panel-chart__gran-btn.is-active {
+  color: #f0fcff;
+  border-color: rgba(48, 200, 255, 0.35);
+  background: linear-gradient(180deg, rgba(92, 232, 255, 0.22) 0%, rgba(48, 200, 255, 0.06) 100%);
+}
+
+.panel-chart__gran-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.panel-chart__main {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.panel-chart__echart {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.panel-chart__state {
+  margin: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: rgba(160, 210, 230, 0.55);
+}
+
+.panel-chart__state.is-error {
+  color: rgba(248, 113, 113, 0.85);
+}
+
+.panel-chart__loading-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 14, 28, 0.25);
+  pointer-events: none;
+}
+
+.panel-chart__summary {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 2px 4px 0;
+}
+
+.panel-chart__metric {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: rgba(92, 232, 255, 0.95);
+}
+
+.panel-chart__metric em {
+  margin-right: 6px;
+  font-style: normal;
+  font-size: 10px;
+  color: rgba(140, 185, 205, 0.55);
+}
+
+.panel-chart__metric.is-warn {
+  color: rgba(232, 200, 74, 0.95);
+}
+
+.panel-chart__metric.is-risk {
+  color: rgba(248, 113, 113, 0.95);
+}

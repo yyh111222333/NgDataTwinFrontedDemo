@@ -1,5 +1,7 @@
-<!-- 进场快捷预约：静态样式，与看板统一，无业务逻辑。 -->
+<!-- 进场快捷预约：静态样式，与看板统一。 -->
 <script setup lang="ts">
+import { ref } from 'vue'
+
 type FieldItem = { key: string; label: string }
 
 const personFields: FieldItem[] = [
@@ -31,8 +33,21 @@ const vehicleFields: FieldItem[] = [
             <div class="quick-appt__field-label-row">
               <span class="quick-appt__field-icon" aria-hidden="true">
                 <svg v-if="field.key === 'name'" viewBox="0 0 24 24">
-                  <circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.6" />
-                  <path d="M5 20c1.5-4 13.5-4 14 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                  <circle
+                    cx="12"
+                    cy="8"
+                    r="4"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                  />
+                  <path
+                    d="M5 20c1.5-4 13.5-4 14 0"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                  />
                 </svg>
                 <svg v-else-if="field.key === 'phone'" viewBox="0 0 24 24">
                   <path
@@ -45,16 +60,66 @@ const vehicleFields: FieldItem[] = [
                 </svg>
                 <svg v-else-if="field.key === 'reason'" viewBox="0 0 24 24">
                   <path d="M7 4h10v16H7z" fill="none" stroke="currentColor" stroke-width="1.6" />
-                  <path d="M9 8h6M9 12h6M9 16h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                  <path
+                    d="M9 8h6M9 12h6M9 16h4"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                  />
                 </svg>
                 <svg v-else viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6" />
-                  <path d="M12 8v4l3 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="8"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                  />
+                  <path
+                    d="M12 8v4l3 2"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                  />
                 </svg>
               </span>
               <span class="quick-appt__field-label">{{ field.label }}</span>
             </div>
             <div class="quick-appt__field-input" />
+          </div>
+          <div class="quick-appt__face-upload">
+            <button type="button" class="quick-appt__btn quick-appt__btn--upload">
+              <span class="quick-appt__btn-upload-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <circle
+                    cx="12"
+                    cy="9"
+                    r="3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                  />
+                  <path
+                    d="M6 19c1.2-2.8 10.8-2.8 12 0"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M17 5v4M15 7h4"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </span>
+              上传人脸
+            </button>
           </div>
           <button type="button" class="quick-appt__btn quick-appt__btn--primary">提交</button>
         </div>
@@ -70,8 +135,21 @@ const vehicleFields: FieldItem[] = [
             <div class="quick-appt__field-label-row">
               <span class="quick-appt__field-icon" aria-hidden="true">
                 <svg v-if="field.key === 'name'" viewBox="0 0 24 24">
-                  <circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.6" />
-                  <path d="M5 20c1.5-4 13.5-4 14 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                  <circle
+                    cx="12"
+                    cy="8"
+                    r="4"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                  />
+                  <path
+                    d="M5 20c1.5-4 13.5-4 14 0"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                  />
                 </svg>
                 <svg v-else-if="field.key === 'phone'" viewBox="0 0 24 24">
                   <path
@@ -84,15 +162,40 @@ const vehicleFields: FieldItem[] = [
                 </svg>
                 <svg v-else-if="field.key === 'plate'" viewBox="0 0 24 24">
                   <path d="M4 10h16v6H4z" fill="none" stroke="currentColor" stroke-width="1.6" />
-                  <path d="M7 13h3M14 13h3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                  <path
+                    d="M7 13h3M14 13h3"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                  />
                 </svg>
                 <svg v-else-if="field.key === 'reason'" viewBox="0 0 24 24">
                   <path d="M7 4h10v16H7z" fill="none" stroke="currentColor" stroke-width="1.6" />
-                  <path d="M9 8h6M9 12h6M9 16h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                  <path
+                    d="M9 8h6M9 12h6M9 16h4"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                  />
                 </svg>
                 <svg v-else viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6" />
-                  <path d="M12 8v4l3 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="8"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                  />
+                  <path
+                    d="M12 8v4l3 2"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                  />
                 </svg>
               </span>
               <span class="quick-appt__field-label">{{ field.label }}</span>
@@ -221,13 +324,57 @@ const vehicleFields: FieldItem[] = [
   border-color: rgba(92, 232, 255, 0.22);
 }
 
+.quick-appt__face-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 1px;
+}
+
+.quick-appt__btn--upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  height: 22px;
+  border: 1px dashed rgba(48, 220, 255, 0.28);
+  background: rgba(6, 20, 36, 0.55);
+  color: rgba(170, 230, 250, 0.9);
+  cursor: pointer;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  box-shadow: inset 0 0 12px rgba(48, 200, 255, 0.04);
+}
+
+.quick-appt__btn--upload:hover {
+  border-color: rgba(92, 232, 255, 0.42);
+  background: rgba(10, 30, 50, 0.72);
+  box-shadow: 0 0 10px rgba(48, 200, 255, 0.1);
+}
+
+.quick-appt__btn-upload-icon {
+  display: inline-flex;
+  width: 13px;
+  height: 13px;
+  color: rgba(140, 230, 255, 0.95);
+}
+
+.quick-appt__btn-upload-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
 .quick-appt__btn {
   border-radius: 4px;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 1px;
   cursor: default;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    background 0.2s;
 }
 
 .quick-appt__btn--primary {

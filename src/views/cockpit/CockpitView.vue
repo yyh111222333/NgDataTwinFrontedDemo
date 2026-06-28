@@ -14,6 +14,11 @@ import CockpitSidePanels from '@/components/cockpit/CockpitSidePanels.vue'
 import { getDashboardOverview, getDeviceStatusOptions } from '@/api/dashboard'
 import { useBackendHealth } from '@/composables/useBackendHealth'
 import {
+  DASHBOARD_DEVICE_REGIONS,
+  DASHBOARD_DEVICE_TYPES,
+} from '@/config/device-status-catalog'
+import { buildDeviceStatusRecords } from '@/mocks/device-status-inventory'
+import {
   bottomMenus,
   middleStats,
   panels,
@@ -67,15 +72,17 @@ const dateText = ref('')
 const timeText = ref('')
 const weekText = ref('')
 const showDebugPanel = ref(false)
-const dataSource = ref<'mock' | 'api'>('api')
+const dataSource = ref<'mock' | 'api'>('mock')
 const apiLoading = ref(false)
 const apiError = ref<string | null>(null)
+const mockRefreshTick = ref(0)
 
 type DashboardViewState = {
   onlineAccess: number
   areaTotal: number
   vehiclesOnSite: number
   railStatus: RailStatus
+  alarmCount: number
   selectedDoorId: string
   doorStates: Record<string, boolean>
   doorFlowDirections: Record<string, DoorFlowDirection>
@@ -84,40 +91,23 @@ type DashboardViewState = {
   deviceRecords: DashboardDeviceRecord[]
 }
 
-// mock 模式下的默认维度和默认统计基线。
-const INITIAL_DEVICE_REGIONS: string[] = ['A区', 'F区', 'L区', '成品库', '火车道', '道路', '厂房', '作业区']
-const INITIAL_DEVICE_TYPES: string[] = [
-  '人员智能门/联锁门',
-  '车辆识别与道闸',
-  '火车道联动门',
-  '摄像机',
-  '声光报警',
-  '光电报警',
-  '烟感器',
-  '温感器',
-]
+const INITIAL_DEVICE_REGIONS: string[] = [...DASHBOARD_DEVICE_REGIONS]
+const INITIAL_DEVICE_TYPES: string[] = [...DASHBOARD_DEVICE_TYPES]
 
-const buildInitialRecords = (regions: string[], devices: string[]) =>
-  regions.flatMap((region) =>
-    devices.map((device) => ({
-      region,
-      device,
-      online: 8,
-      offline: 1,
-    })),
-  )
+const buildInitialRecords = () => buildDeviceStatusRecords(0)
 
 const createInitialState = (): DashboardViewState => ({
   onlineAccess: Number(middleStats[0]?.value ?? 0),
   areaTotal: Number(middleStats[1]?.value ?? 0),
   vehiclesOnSite: Number(middleStats[2]?.value ?? 0),
   railStatus: middleStats[3]?.value === '占用' ? '占用' : '空闲',
+  alarmCount: 0,
   selectedDoorId: DEFAULT_DOOR_ID,
   doorStates: createDoorStateMap(false),
   doorFlowDirections: createDoorFlowDirectionMap('out'),
   deviceRegions: [...INITIAL_DEVICE_REGIONS],
   deviceTypes: [...INITIAL_DEVICE_TYPES],
-  deviceRecords: buildInitialRecords(INITIAL_DEVICE_REGIONS, INITIAL_DEVICE_TYPES),
+  deviceRecords: buildInitialRecords(),
 })
 
 // 深拷贝视图状态，避免 mock/current 共用引用导致串改。
@@ -126,6 +116,7 @@ const cloneState = (state: DashboardViewState): DashboardViewState => ({
   areaTotal: state.areaTotal,
   vehiclesOnSite: state.vehiclesOnSite,
   railStatus: state.railStatus,
+  alarmCount: state.alarmCount,
   selectedDoorId: state.selectedDoorId,
   doorStates: { ...state.doorStates },
   doorFlowDirections: { ...state.doorFlowDirections },
@@ -142,7 +133,7 @@ const runtimeKpiStats = computed(() => [
   { value: String(currentState.value.areaTotal), label: '区域总人数' },
   { value: String(currentState.value.vehiclesOnSite), label: '车辆在场' },
   { value: currentState.value.railStatus, label: '火车道状态' },
-  { value: '0', label: '异常警告' },
+  { value: String(currentState.value.alarmCount), label: '异常警告' },
 ])
 
 const regionOptions = ref<DeviceStatusOption[]>([])
@@ -156,6 +147,7 @@ const applyOverviewData = (data: DashboardOverviewData) => {
     areaTotal: data.areaTotal,
     vehiclesOnSite: data.vehiclesOnSite,
     railStatus: data.railStatus,
+    alarmCount: data.alarmCount,
     selectedDoorId: currentState.value.selectedDoorId,
     doorStates: { ...currentState.value.doorStates },
     doorFlowDirections: { ...currentState.value.doorFlowDirections },
@@ -176,7 +168,11 @@ const withAllOption = (items: DeviceStatusOption[]) => {
 }
 
 const applyOptionsData = (data: DeviceStatusOptionsData) => {
-  regionOptions.value = withAllOption(data.regions)
+  const regionNames =
+    currentState.value.deviceRegions.length > 0
+      ? currentState.value.deviceRegions
+      : [...DASHBOARD_DEVICE_REGIONS]
+  regionOptions.value = withAllOption(regionNames.map((name) => ({ id: name, name })))
   deviceOptions.value = withAllOption(data.deviceTypes)
 }
 
@@ -190,19 +186,28 @@ const initMockOptions = () => {
 const loadDeviceStatusOptions = async (regionId: string) => {
   apiError.value = null
   try {
-    const data = await getDeviceStatusOptions(regionId)
+    const data = await getDeviceStatusOptions(regionId, {
+      useMock: dataSource.value === 'mock',
+    })
     applyOptionsData(data)
   } catch (e) {
     apiError.value = e instanceof Error ? e.message : String(e)
   }
 }
 
-const loadDashboardFromApi = async () => {
+const loadDashboardOverview = async () => {
   apiLoading.value = true
   apiError.value = null
   try {
-    const data = await getDashboardOverview()
+    const useMock = dataSource.value === 'mock'
+    const data = await getDashboardOverview({
+      useMock,
+      mockTick: useMock ? mockRefreshTick.value : undefined,
+    })
     applyOverviewData(data)
+    if (useMock) {
+      mockRefreshTick.value += 1
+    }
   } catch (e) {
     apiError.value = e instanceof Error ? e.message : String(e)
   } finally {
@@ -215,9 +220,7 @@ let overviewRefreshTimer: number | null = null
 const startOverviewAutoRefresh = () => {
   if (overviewRefreshTimer !== null) return
   overviewRefreshTimer = window.setInterval(() => {
-    if (dataSource.value === 'api') {
-      void loadDashboardFromApi()
-    }
+    void loadDashboardOverview()
   }, 30_000)
 }
 
@@ -228,39 +231,39 @@ const stopOverviewAutoRefresh = () => {
   }
 }
 
-// API 模式入口：重置筛选并拉一次可选项 + 概览，再开启轮询。
-const enterApiMode = async () => {
+const bootstrapOverview = async () => {
   selectedRegionId.value = 'all'
   selectedDeviceType.value = 'all'
   await loadDeviceStatusOptions('all')
-  await loadDashboardFromApi()
+  await loadDashboardOverview()
   startOverviewAutoRefresh()
 }
 
 const handleRegionChange = async (newRegionId: string) => {
   selectedRegionId.value = newRegionId
-  if (dataSource.value !== 'api') return
   selectedDeviceType.value = 'all'
-  await loadDeviceStatusOptions(newRegionId)
-  await loadDashboardFromApi()
+  if (dataSource.value === 'api') {
+    await loadDeviceStatusOptions(newRegionId)
+    await loadDashboardOverview()
+  } else {
+    await loadDeviceStatusOptions(newRegionId)
+  }
 }
 
-const handleDeviceChange = async (newDeviceType: string) => {
-  selectedDeviceType.value = newDeviceType
+const handleDeviceChange = async (_newDeviceType: string) => {
   if (dataSource.value !== 'api') return
-  await loadDashboardFromApi()
+  await loadDashboardOverview()
 }
 
 watch(
   dataSource,
-  (mode) => {
-    if (mode === 'api') {
-      void enterApiMode()
-      return
-    }
+  (mode, prev) => {
     stopOverviewAutoRefresh()
-    projectMockToCurrent()
-    initMockOptions()
+    mockRefreshTick.value = 0
+    if (mode === 'mock' && prev === 'api') {
+      projectMockToCurrent()
+    }
+    void bootstrapOverview()
   },
   { immediate: true },
 )
@@ -406,7 +409,17 @@ const handleToggleSelectedDoorFlowDirection = () => {
             <CockpitDrivingMonitorOverview />
           </template>
           <template #right-risk>
-            <CockpitSmartMonitorOverview />
+            <CockpitSmartMonitorOverview
+              :device-records="currentState.deviceRecords"
+              :region-options="regionOptions"
+              :device-options="deviceOptions"
+              :selected-region-id="selectedRegionId"
+              :selected-device-type="selectedDeviceType"
+              @update:selected-region-id="selectedRegionId = $event"
+              @update:selected-device-type="selectedDeviceType = $event"
+              @region-change="handleRegionChange"
+              @device-change="handleDeviceChange"
+            />
           </template>
           <template #right-board>
             <CockpitQuickAppointment />
@@ -444,7 +457,7 @@ const handleToggleSelectedDoorFlowDirection = () => {
         @update:selected-door-id="handleMockSelectedDoorUpdate"
         @toggle-selected-door="handleToggleSelectedDoor"
         @toggle-selected-door-flow-direction="handleToggleSelectedDoorFlowDirection"
-        @refresh="loadDashboardFromApi"
+        @refresh="loadDashboardOverview"
       />
     </div>
   </CockpitShell>

@@ -51,3 +51,47 @@ export interface DangerEventStatsQuery {
   granularity: SmartMonitorGranularity
   anchor: string
 }
+
+/** 存储状态：正常 / 预警 / 告警 */
+export type StorageStatusLevel = 'normal' | 'warning' | 'critical'
+
+/** 存储节点（顺序与图表一致） */
+export const STORAGE_MONITOR_NODES = [
+  { id: 'core-a', name: '核心区存储A' },
+  { id: 'core-b', name: '核心区存储B' },
+  { id: 'video-pool', name: '监控录像池' },
+  { id: 'backup-pool', name: '备份归档池' },
+] as const
+
+export type StorageNodeId = (typeof STORAGE_MONITOR_NODES)[number]['id']
+
+export interface StorageStatusItem {
+  storageId: StorageNodeId
+  storageName: string
+  /** 总容量（TB） */
+  totalCapacityTb: number
+  /** 已用容量（TB） */
+  usedCapacityTb: number
+  /** 使用率 0–100，保留一位小数 */
+  usagePercent: number
+  status: StorageStatusLevel
+}
+
+/** GET /api/smart-monitor/storage-status 的 data 载荷（实时快照，无粒度切换） */
+export interface StorageStatusData {
+  /** 快照时间 ISO8601，如 `2026-06-06T14:30:00+08:00` */
+  snapshotAt: string
+  /** 展示文案，如 `2026年6月6日 14:30` */
+  snapshotLabel: string
+  items: StorageStatusItem[]
+  summary: {
+    totalCapacityTb: number
+    usedCapacityTb: number
+    /** 平均使用率 0–100 */
+    avgUsagePercent: number
+    /** status 为 warning 或 critical 的节点数 */
+    alertCount: number
+  }
+}
+
+export type StorageStatusApiResponse = ApiResponse<StorageStatusData>

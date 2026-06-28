@@ -1,14 +1,22 @@
 <!-- 人员进出概况：区域进出统计柱状图 + 其余 Tab 占位。 -->
 <script setup lang="ts">
 import CockpitPanelTabs from '@/components/cockpit/CockpitPanelTabs.vue'
+import PersonnelMatterStatsChart from '@/components/cockpit/PersonnelMatterStatsChart.vue'
 import PersonnelRegionStatsChart from '@/components/cockpit/PersonnelRegionStatsChart.vue'
+import PersonnelTimeStatsChart from '@/components/cockpit/PersonnelTimeStatsChart.vue'
 import { personnelOverviewTabs } from '@/config/cockpit'
+import type { PersonnelAccessGranularity } from '@/types/personnel-access'
+import { ref } from 'vue'
+
+const granularity = ref<PersonnelAccessGranularity>('day')
 </script>
 
 <template>
   <CockpitPanelTabs :tabs="personnelOverviewTabs" ariaLabel="人员进出概况" :bodyMinHeight="200">
     <template #default="{ activeTab }">
-      <PersonnelRegionStatsChart v-if="activeTab === 'region'" />
+      <PersonnelRegionStatsChart v-if="activeTab === 'region'" v-model:granularity="granularity" />
+      <PersonnelMatterStatsChart v-else-if="activeTab === 'matter'" v-model:granularity="granularity" />
+      <PersonnelTimeStatsChart v-else-if="activeTab === 'time'" v-model:granularity="granularity" />
       <div v-else class="personnel-overview__placeholder">
         <p class="personnel-overview__placeholder-title">
           {{ personnelOverviewTabs.find((t) => t.key === activeTab)?.label }}

@@ -12,7 +12,7 @@ import {
 } from '@/types/driving-monitor'
 
 /** 各档位 Mock 基数（次），偏重优秀/良好以支撑平均分 91 */
-const GRADE_BASE_WEIGHTS = [48, 34, 12, 4, 2] as const
+const GRADE_BASE_WEIGHTS = [48, 34, 12, 4, 0] as const
 
 const TARGET_AVERAGE_SCORE = 91
 
@@ -31,15 +31,17 @@ export function buildParkingScoreStatsMock(
   const seed = seedFromString(`parking-score:${granularity}:${anchor}`)
 
   const rawCounts = PARKING_SCORE_GRADES.map((_, idx) => {
+    const baseWeight = GRADE_BASE_WEIGHTS[idx]!
+    if (baseWeight === 0) return 0
     const wobble = 0.75 + pseudo(seed, idx + 3) * 0.5
-    return Math.max(1, Math.round(GRADE_BASE_WEIGHTS[idx]! * wobble * scale))
+    return Math.max(1, Math.round(baseWeight * wobble * scale))
   })
 
   const totalCount = rawCounts.reduce((s, n) => s + n, 0)
 
   const items = PARKING_SCORE_GRADES.map((grade, idx) => {
     const count = rawCounts[idx]!
-    const percentage = Math.round((count / totalCount) * 1000) / 10
+    const percentage = totalCount > 0 ? Math.round((count / totalCount) * 1000) / 10 : 0
     return {
       gradeId: grade.id,
       gradeName: grade.name,

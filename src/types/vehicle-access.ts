@@ -48,3 +48,61 @@ export interface VehicleChannelStatsQuery {
   granularity: VehicleAccessGranularity
   anchor: string
 }
+
+/** 车辆进厂事项（饼图固定 5 类） */
+export const VEHICLE_MATTER_TYPES = [
+  { id: 'pickup', name: '提货', color: '#5ce8ff' },
+  { id: 'delivery', name: '送货', color: '#4ade80' },
+  { id: 'repair', name: '维修', color: '#e8c84a' },
+  { id: 'temp', name: '临时访问', color: '#f59e0b' },
+  { id: 'other', name: '其他', color: '#a78bfa' },
+] as const
+
+export type VehicleMatterId = (typeof VEHICLE_MATTER_TYPES)[number]['id']
+
+export interface VehicleMatterStatItem {
+  matterId: VehicleMatterId
+  matterName: string
+  count: number
+  percentage: number
+}
+
+export interface VehicleMatterStatsData {
+  granularity: VehicleAccessGranularity
+  anchor: string
+  periodLabel: string
+  periodStart: string
+  periodEnd: string
+  granularityOptions: VehicleGranularityOption[]
+  items: VehicleMatterStatItem[]
+  summary: { totalCount: number }
+}
+
+export type VehicleMatterStatsApiResponse = ApiResponse<VehicleMatterStatsData>
+export type VehicleMatterStatsQuery = VehicleChannelStatsQuery
+
+export interface VehicleTimeStatItem {
+  slotId: string
+  slotLabel: string
+  enterCount: number
+  exitCount: number
+}
+
+export interface VehicleTimeStatsData {
+  granularity: VehicleAccessGranularity
+  anchor: string
+  periodLabel: string
+  periodStart: string
+  periodEnd: string
+  granularityOptions: VehicleGranularityOption[]
+  items: VehicleTimeStatItem[]
+  summary: {
+    enterTotal: number
+    exitTotal: number
+    peakSlotLabel: string
+    peakTotal: number
+  }
+}
+
+export type VehicleTimeStatsApiResponse = ApiResponse<VehicleTimeStatsData>
+export type VehicleTimeStatsQuery = VehicleChannelStatsQuery

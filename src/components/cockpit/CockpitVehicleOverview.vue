@@ -2,13 +2,21 @@
 <script setup lang="ts">
 import CockpitPanelTabs from '@/components/cockpit/CockpitPanelTabs.vue'
 import VehicleChannelStatsChart from '@/components/cockpit/VehicleChannelStatsChart.vue'
+import VehicleMatterStatsChart from '@/components/cockpit/VehicleMatterStatsChart.vue'
+import VehicleTimeStatsChart from '@/components/cockpit/VehicleTimeStatsChart.vue'
 import { vehicleOverviewTabs } from '@/config/cockpit'
+import type { VehicleAccessGranularity } from '@/types/vehicle-access'
+import { ref } from 'vue'
+
+const granularity = ref<VehicleAccessGranularity>('day')
 </script>
 
 <template>
   <CockpitPanelTabs :tabs="vehicleOverviewTabs" ariaLabel="车辆进出概况" :bodyMinHeight="200">
     <template #default="{ activeTab }">
-      <VehicleChannelStatsChart v-if="activeTab === 'channel'" />
+      <VehicleChannelStatsChart v-if="activeTab === 'channel'" v-model:granularity="granularity" />
+      <VehicleMatterStatsChart v-else-if="activeTab === 'matter'" v-model:granularity="granularity" />
+      <VehicleTimeStatsChart v-else-if="activeTab === 'time'" v-model:granularity="granularity" />
       <div v-else class="vehicle-overview__placeholder">
         <p class="vehicle-overview__placeholder-title">
           {{ vehicleOverviewTabs.find((t) => t.key === activeTab)?.label }}

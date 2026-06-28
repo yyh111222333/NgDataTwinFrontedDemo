@@ -50,3 +50,78 @@ export interface ParkingScoreStatsQuery {
   granularity: DrivingMonitorGranularity
   anchor: string
 }
+
+/** 疲劳统计 — 固定 5 台行车 */
+export const FATIGUE_CRANE_UNITS = [
+  { id: 'c1', name: '1号行车' },
+  { id: 'c2', name: '2号行车' },
+  { id: 'c3', name: '3号行车' },
+  { id: 'c4', name: '4号行车' },
+  { id: 'c5', name: '5号行车' },
+] as const
+
+export type FatigueCraneId = (typeof FATIGUE_CRANE_UNITS)[number]['id']
+
+export interface FatigueStatItem {
+  craneId: FatigueCraneId
+  craneName: string
+  fatigueCount: number
+}
+
+export interface FatigueStatsData {
+  granularity: DrivingMonitorGranularity
+  anchor: string
+  periodLabel: string
+  periodStart: string
+  periodEnd: string
+  granularityOptions: DrivingGranularityOption[]
+  items: FatigueStatItem[]
+  summary: {
+    totalCount: number
+    maxCraneName: string
+    maxCount: number
+  }
+}
+
+export type FatigueStatsApiResponse = ApiResponse<FatigueStatsData>
+export type FatigueStatsQuery = ParkingScoreStatsQuery
+
+/** 遮挡监测 — 固定 6 路摄像头 */
+export type OcclusionStatusLevel = 'normal' | 'warning' | 'critical'
+
+export const OCCLUSION_CAMERA_NODES = [
+  { id: 'cam1', name: '1号摄像头' },
+  { id: 'cam2', name: '2号摄像头' },
+  { id: 'cam3', name: '3号摄像头' },
+  { id: 'cam4', name: '4号摄像头' },
+  { id: 'cam5', name: '5号摄像头' },
+  { id: 'cam6', name: '6号摄像头' },
+] as const
+
+export type OcclusionCameraId = (typeof OCCLUSION_CAMERA_NODES)[number]['id']
+
+export interface OcclusionStatItem {
+  cameraId: OcclusionCameraId
+  cameraName: string
+  occlusionCount: number
+  durationMinutes: number
+  status: OcclusionStatusLevel
+}
+
+export interface OcclusionStatsData {
+  granularity: DrivingMonitorGranularity
+  anchor: string
+  periodLabel: string
+  periodStart: string
+  periodEnd: string
+  granularityOptions: DrivingGranularityOption[]
+  items: OcclusionStatItem[]
+  summary: {
+    totalCount: number
+    totalDurationMinutes: number
+    alertCount: number
+  }
+}
+
+export type OcclusionStatsApiResponse = ApiResponse<OcclusionStatsData>
+export type OcclusionStatsQuery = ParkingScoreStatsQuery

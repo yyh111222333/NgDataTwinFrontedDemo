@@ -1,47 +1,26 @@
-import {
-  ACCESS_GRANULARITY_OPTIONS,
-  buildAccessPeriod,
-  defaultAccessStatsAnchors,
-  pseudo,
-  scaleByGranularity,
-  seedFromString,
-  type AccessStatsGranularity,
-} from '@/mocks/access-stats-shared'
-import { VEHICLE_ACCESS_CHANNELS, type VehicleChannelStatsData } from '@/types/vehicle-access'
+import { defaultAccessStatsAnchors } from '@/mocks/access-stats-shared'
+import { getVehicleAccessSnapshot } from '@/mocks/vehicle-access-snapshot'
+import type { AccessStatsGranularity } from '@/mocks/access-stats-shared'
+import type { VehicleChannelStatsData } from '@/types/vehicle-access'
 
 export function buildVehicleChannelStatsMock(
   granularity: AccessStatsGranularity,
   anchor: string,
 ): VehicleChannelStatsData {
-  const period = buildAccessPeriod(granularity, anchor)
-  const scale = scaleByGranularity(granularity)
-  const seed = seedFromString(`vehicle:${granularity}:${anchor}`)
-
-  const items = VEHICLE_ACCESS_CHANNELS.map((channel, idx) => {
-    const base = 28 + idx * 9
-    const enterCount = Math.max(1, Math.round((base + pseudo(seed, idx * 2 + 7) * 65) * scale))
-    const exitCount = enterCount
-    return {
-      channelId: channel.id,
-      channelName: channel.name,
-      enterCount,
-      exitCount,
-    }
-  })
-
-  const enterTotal = items.reduce((s, it) => s + it.enterCount, 0)
-  const exitTotal = items.reduce((s, it) => s + it.exitCount, 0)
+  const snapshot = getVehicleAccessSnapshot(granularity, anchor)
 
   return {
-    granularity,
-    anchor,
-    ...period,
-    granularityOptions: [...ACCESS_GRANULARITY_OPTIONS],
-    items,
+    granularity: snapshot.granularity,
+    anchor: snapshot.anchor,
+    periodLabel: snapshot.periodLabel,
+    periodStart: snapshot.periodStart,
+    periodEnd: snapshot.periodEnd,
+    granularityOptions: snapshot.granularityOptions,
+    items: snapshot.channelItems,
     summary: {
-      enterTotal,
-      exitTotal,
-      netIn: enterTotal - exitTotal,
+      enterTotal: snapshot.enterTotal,
+      exitTotal: snapshot.exitTotal,
+      netIn: snapshot.enterTotal - snapshot.exitTotal,
     },
   }
 }

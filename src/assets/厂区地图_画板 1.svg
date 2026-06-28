@@ -210,6 +210,10 @@
         stroke-width: 1.45px;
       }
 
+      .cls-57 {
+        fill: #5df;
+      }
+
       .cls-43 {
         stroke-width: .65px;
       }
@@ -231,12 +235,16 @@
     <text class="cls-55" transform="translate(746.93 797.73)"><tspan x="0" y="0">10号门</tspan></text>
     <text class="cls-55" transform="translate(396.29 793.77)"><tspan x="0" y="0">11号门</tspan></text>
     <text class="cls-55" transform="translate(395.14 289.13)"><tspan x="0" y="0">12号门</tspan></text>
-    <text class="cls-54" transform="translate(1275.38 565.19)"><tspan x="0" y="0">K区产品管理室</tspan></text>
-    <text class="cls-54" transform="translate(1272.14 439.79)"><tspan x="0" y="0">L区产品管理室</tspan></text>
-    <text class="cls-54" transform="translate(1275.39 690.12)"><tspan x="0" y="0">J区产品管理室</tspan></text>
-    <text class="cls-54" transform="translate(861.42 691.73)"><tspan x="0" y="0">D区产品管理室</tspan></text>
-    <text class="cls-54" transform="translate(860.72 561.53)"><tspan x="0" y="0">E区产品管理室</tspan></text>
+    <text class="cls-54" transform="translate(1289.59 565.19)"><tspan x="0" y="0">K区产管理</tspan></text>
+    <text class="cls-54" transform="translate(1293.45 439.79)"><tspan x="0" y="0">L区产管</tspan></text>
+    <text class="cls-54" transform="translate(1289.6 690.12)"><tspan x="0" y="0">J区产管理</tspan></text>
+    <text class="cls-54" transform="translate(882.73 691.73)"><tspan x="0" y="0">D区产管</tspan></text>
+    <text class="cls-54" transform="translate(882.04 561.53)"><tspan x="0" y="0">E区产管</tspan></text>
+    <text class="cls-54" transform="translate(1066.18 561.53)"><tspan x="0" y="0">E区</tspan></text>
+    <text class="cls-54" transform="translate(1069.48 691.73)"><tspan x="0" y="0">D区</tspan></text>
     <text class="cls-54" transform="translate(667.78 564.07)"><tspan x="0" y="0">E区精整</tspan></text>
+    <text class="cls-54" transform="translate(500.38 566.58)"><tspan x="0" y="0">B区精整</tspan></text>
+    <text class="cls-54" transform="translate(500.38 687.02)"><tspan x="0" y="0">D区精整</tspan></text>
     <text class="cls-54" transform="translate(667.78 687.02)"><tspan x="0" y="0">D区精整</tspan></text>
     <text class="cls-53" transform="translate(860.61 521.21)"><tspan x="0" y="0">E01</tspan></text>
     <text class="cls-53" transform="translate(886.38 473.95)"><tspan x="0" y="0">F02</tspan></text>
@@ -276,14 +284,15 @@
     <text class="cls-53" transform="translate(1329.25 602.51)"><tspan x="0" y="0">K05</tspan></text>
     <text class="cls-53" transform="translate(1385.89 602.38)"><tspan x="0" y="0">K04</tspan></text>
     <text class="cls-53" transform="translate(855.07 602.77)"><tspan x="0" y="0">E05</tspan></text>
-    <text class="cls-54" transform="translate(471.15 429.86) scale(.96 1)"><tspan x="0" y="0">A区</tspan><tspan x="-24.86" y="17.05">产品管理室</tspan></text>
+    <text class="cls-54" transform="translate(459.22 441.46) scale(.96 1)"><tspan x="0" y="0">A区产管</tspan></text>
+    <text class="cls-54" transform="translate(549.23 409.3) scale(.96 1)"><tspan x="0" y="0">六号台</tspan></text>
     <text class="cls-56" transform="translate(853.89 861.81)"><tspan x="0" y="0">汽车道闸</tspan></text>
     <text class="cls-56" transform="translate(732.58 860.79)"><tspan x="0" y="0">人脸门禁</tspan></text>
     <text class="cls-56" transform="translate(632.84 860.66)"><tspan x="0" y="0">火车道管控门</tspan></text>
     <text class="cls-56" transform="translate(546.84 860.61)"><tspan x="0" y="0">联锁管控门</tspan></text>
     <text class="cls-56" transform="translate(989.83 860.35)"><tspan x="0" y="0">火车道闸</tspan></text>
-    <text class="cls-54" transform="translate(921.06 439.79) scale(.96 1)"><tspan x="0" y="0">F区热处理区间</tspan></text>
-    <text class="cls-54" transform="translate(645.25 441.29) scale(.96 1)"><tspan x="0" y="0">F区半成品货位区</tspan></text>
+    <text class="cls-54" transform="translate(921.06 439.79) scale(.96 1)"><tspan x="0" y="0">F区热处理车间</tspan></text>
+    <text class="cls-54" transform="translate(672.55 441.29) scale(.96 1)"><tspan x="0" y="0">F区半货</tspan></text>
     <polyline class="cls-1" points="783.62 771.02 775.56 770.48 775.56 725.78"/>
     <line class="cls-36" x1="1036.65" y1="485.28" x2="1036.65" y2="479.07"/>
   </g>
@@ -565,15 +574,16 @@
   <g id="_图层_21" data-name="图层 21">
     <g>
       <polyline class="cls-17" points="1180.53 367.99 1105.32 176.22 1104.88 176.22"/>
-      <polyline class="cls-17" points="1180.53 877.29 1180.53 367.99 1180.09 367.99"/>
-      <polygon class="cls-17" points="1166.61 877.29 1167.06 877.29 1166.61 367.95 1166.61 877.29"/>
+      <polyline class="cls-17" points="1180.53 815.86 1180.53 367.99 1180.09 367.99"/>
+      <polygon class="cls-17" points="1166.61 815.86 1167.06 815.86 1166.61 367.95 1166.61 815.86"/>
       <polyline class="cls-17" points="1091.41 176.22 1166.61 367.95 1167.06 367.95"/>
       <polyline class="cls-17" points="1133.6 368.81 1104.43 176.22 1103.99 176.22"/>
-      <polyline class="cls-17" points="1133.6 877.29 1133.6 368.81 1133.15 368.81"/>
-      <polygon class="cls-17" points="1119.68 877.29 1120.13 877.29 1119.68 368.77 1119.68 877.29"/>
-      <polyline class="cls-17" points="1119.68 368.77 1120.13 368.77 1120.13 877.29"/>
+      <polyline class="cls-17" points="1133.6 815.86 1133.6 368.81 1133.15 368.81"/>
+      <polygon class="cls-17" points="1119.68 815.86 1120.13 815.86 1119.68 368.77 1119.68 815.86"/>
+      <polyline class="cls-17" points="1119.68 368.77 1120.13 368.77 1120.13 815.86"/>
       <polyline class="cls-17" points="1090.52 176.22 1119.68 368.77 1120.13 368.77"/>
     </g>
     <line class="cls-36" x1="831.37" y1="479.07" x2="831.39" y2="505.48"/>
+    <path class="cls-57" d="M586.79,430.64l11.15,19.31-11.15,19.31h-22.29l-11.15-19.31,11.15-19.31h22.29M587.18,429.97h-23.07l-11.54,19.98,11.54,19.98h23.07l11.54-19.98-11.54-19.98h0Z"/>
   </g>
 </svg>

@@ -1,6 +1,8 @@
 <!-- 行车监测概况：停车评分统计饼图 + 其余 Tab 占位。 -->
 <script setup lang="ts">
 import CockpitPanelTabs from '@/components/cockpit/CockpitPanelTabs.vue'
+import FatigueStatsChart from '@/components/cockpit/FatigueStatsChart.vue'
+import OcclusionStatsChart from '@/components/cockpit/OcclusionStatsChart.vue'
 import ParkingScoreStatsChart from '@/components/cockpit/ParkingScoreStatsChart.vue'
 import { drivingMonitorTabs } from '@/config/cockpit'
 </script>
@@ -9,6 +11,8 @@ import { drivingMonitorTabs } from '@/config/cockpit'
   <CockpitPanelTabs :tabs="drivingMonitorTabs" ariaLabel="行车监测概况">
     <template #default="{ activeTab }">
       <ParkingScoreStatsChart v-if="activeTab === 'parking'" />
+      <FatigueStatsChart v-else-if="activeTab === 'fatigue'" />
+      <OcclusionStatsChart v-else-if="activeTab === 'occlusion'" />
       <div v-else class="driving-overview__placeholder">
         <p class="driving-overview__placeholder-title">
           {{ drivingMonitorTabs.find((t) => t.key === activeTab)?.label }}

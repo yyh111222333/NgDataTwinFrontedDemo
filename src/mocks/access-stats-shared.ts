@@ -78,3 +78,121 @@ export const defaultAccessStatsAnchors = () => {
     year: String(y),
   }
 }
+
+/** 每次请求时解析 anchor，避免组件挂载时刻不同导致跨 Tab 不一致 */
+export const resolveAccessStatsAnchor = (granularity: AccessStatsGranularity) =>
+  defaultAccessStatsAnchors()[granularity]
+
+/** 进出时间分布：12 个两小时时段 */
+export const ACCESS_TIME_SLOTS = Array.from({ length: 12 }, (_, i) => {
+  const start = i * 2
+  const end = start + 2
+  return {
+    id: `h${pad2(start)}`,
+    label: `${pad2(start)}-${end === 24 ? '24' : pad2(end)}`,
+  }
+}) as ReadonlyArray<{ id: string; label: string }>
+
+export const buildGranularityEnvelope = (
+  granularity: AccessStatsGranularity,
+  anchor: string,
+) => ({
+  granularity,
+  anchor,
+  ...buildAccessPeriod(granularity, anchor),
+  granularityOptions: [...ACCESS_GRANULARITY_OPTIONS],
+})
+
+/** 按权重将 total 精确拆成整数数组（各项之和 === total） */
+export const distributeTotalByWeights = (total: number, weights: readonly number[]) => {
+  if (total <= 0) return weights.map(() => 0)
+
+  const safeWeights = weights.map((w) => Math.max(0, w))
+  const weightSum = safeWeights.reduce((s, w) => s + w, 0) || 1
+
+  const counts = safeWeights.map((w) => Math.floor((w / weightSum) * total))
+  let remainder = total - counts.reduce((s, n) => s + n, 0)
+
+  const ranked = safeWeights
+    .map((w, i) => ({
+      i,
+      frac: (w / weightSum) * total - counts[i]!,
+    }))
+    .sort((a, b) => b.frac - a.frac)
+
+  for (let k = 0; k < remainder; k += 1) {
+    counts[ranked[k % ranked.length]!.i]! += 1
+  }
+
+  return counts
+}
+
+/** 按固定占比拆分（ratioPercents 之和应为 100，无随机扰动，饼图切换粒度时形状变化明显） */
+export const buildMatterItemsFromRatios = (
+  matters: ReadonlyArray<{ id: string; name: string }>,
+  ratioPercents: readonly number[],
+  total: number,
+) => {
+  const counts = distributeTotalByWeights(total, ratioPercents)
+  const totalCount = counts.reduce((s, n) => s + n, 0)
+
+  return {
+    items: matters.map((matter, idx) => {
+      const count = counts[idx]!
+      return {
+        matterId: matter.id,
+        matterName: matter.name,
+        count,
+        percentage: totalCount > 0 ? Math.round((count / totalCount) * 1000) / 10 : 0,
+      }
+    }),
+    summary: { totalCount },
+  }
+}
+
+/** 将进出总量按时段权重拆分（各时段 enter/exit 之和分别等于传入总量） */
+export const buildTimeSlotItemsFromTotals = (
+  enterTotal: number,
+  exitTotal: number,
+  seed: number,
+) => {
+  const peakIndices = new Set([4, 5, 6, 7, 8])
+
+  const enterWeights = ACCESS_TIME_SLOTS.map((_, idx) => {
+    const peakBoost = peakIndices.has(idx) ? 1.8 : 0.85
+    return Math.max(0.01, (8 + pseudo(seed, idx + 3) * 22) * peakBoost)
+  })
+
+  const exitWeights = ACCESS_TIME_SLOTS.map((_, idx) => {
+    const peakBoost = peakIndices.has(idx) ? 1.8 : 0.85
+    return Math.max(0.01, (8 + pseudo(seed, idx + 19) * 22) * peakBoost)
+  })
+
+  const enterCounts = distributeTotalByWeights(enterTotal, enterWeights)
+  const exitCounts = distributeTotalByWeights(exitTotal, exitWeights)
+
+  const items = ACCESS_TIME_SLOTS.map((slot, idx) => ({
+    slotId: slot.id,
+    slotLabel: slot.label,
+    enterCount: enterCounts[idx]!,
+    exitCount: exitCounts[idx]!,
+  }))
+
+  const peak = items.reduce(
+    (best, it) => {
+      const slotTotal = it.enterCount + it.exitCount
+      return slotTotal > best.total ? { slotLabel: it.slotLabel, total: slotTotal } : best
+    },
+    { slotLabel: items[0]?.slotLabel ?? '—', total: 0 },
+  )
+
+  return {
+    items,
+    summary: {
+      enterTotal,
+      exitTotal,
+      peakSlotLabel: peak.slotLabel,
+      peakTotal: peak.total,
+    },
+  }
+}

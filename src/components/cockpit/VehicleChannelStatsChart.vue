@@ -1,7 +1,7 @@
 <!-- 车辆进出 — 通道进出统计（样式与人员区域进出统计一致） -->
 <script setup lang="ts">
 import { getVehicleChannelStats } from '@/api/vehicle-access'
-import { defaultVehicleChannelStatsAnchors } from '@/mocks/vehicle-access-channel-stats'
+import { resolveAccessStatsAnchor } from '@/mocks/access-stats-shared'
 import type { VehicleAccessGranularity, VehicleChannelStatsData } from '@/types/vehicle-access'
 import { BarChart } from 'echarts/charts'
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
@@ -13,21 +13,17 @@ import VChart from 'vue-echarts'
 
 use([BarChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer])
 
-const granularity = ref<VehicleAccessGranularity>('day')
+const granularity = defineModel<VehicleAccessGranularity>('granularity', { default: 'day' })
 const statsData = ref<VehicleChannelStatsData | null>(null)
 const loading = ref(false)
 const loadError = ref<string | null>(null)
-
-const anchors = defaultVehicleChannelStatsAnchors()
-
-const resolveAnchor = (g: VehicleAccessGranularity) => anchors[g]
 
 const loadStats = async () => {
   loading.value = true
   loadError.value = null
   try {
     statsData.value = await getVehicleChannelStats(
-      { granularity: granularity.value, anchor: resolveAnchor(granularity.value) },
+      { granularity: granularity.value!, anchor: resolveAccessStatsAnchor(granularity.value!) },
       { useMock: true },
     )
   } catch (e) {
