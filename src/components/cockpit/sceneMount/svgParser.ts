@@ -1,4 +1,11 @@
 // SVG 解析模块：从厂区地图 SVG 提取门禁几何、墙体与绘制样式数据。
+import {
+  queryGateLeaf,
+  queryGatePivot,
+  queryGateStatic,
+} from './gateParts'
+import { queryTripodPivot, queryTripodRoute, queryTripodRotor } from './tripodParts'
+
 export type SvgPaint = { stroke?: string; fill?: string; strokeWidth?: number }
 export type Point = { x: number; y: number }
 export type Line = { x1: number; y1: number; x2: number; y2: number; paint: SvgPaint }
@@ -146,7 +153,7 @@ const parseWalls = (doc: Document, classMap: Record<string, SvgClassStyle>) => {
 }
 
 // 解析人员门：leaf 为可动门扇，pivot 为旋转中心。
-const parsePersonGateGeometries = (doc: Document, classMap: Record<string, SvgClassStyle>) => {
+const parseLegacyPersonGateGeometries = (doc: Document, classMap: Record<string, SvgClassStyle>) => {
   const leafEls = Array.from(doc.querySelectorAll('[id$="_leaf"]'))
   const out: Record<string, PersonGateGeometry> = {}
   leafEls.forEach((el) => {
@@ -169,8 +176,40 @@ const parsePersonGateGeometries = (doc: Document, classMap: Record<string, SvgCl
   return out
 }
 
-// 解析三辊闸：3条轨迹 + pivot + rotor + static 外形信息。
-const parseTripodGeometries = (doc: Document, classMap: Record<string, SvgClassStyle>) => {
+const isNestedPersonGateId = (id: string) => /^person_[\w\d]+$/.test(id)
+
+/** 新地图：person_* 分组内 pivot + leaf（line） */
+const parseNestedPersonGateGeometries = (doc: Document, classMap: Record<string, SvgClassStyle>) => {
+  const out: Record<string, PersonGateGeometry> = {}
+  Array.from(doc.querySelectorAll('g[id]')).forEach((groupEl) => {
+    const gateId = groupEl.getAttribute('id') ?? ''
+    if (!isNestedPersonGateId(gateId)) return
+
+    const pivotEl = queryGatePivot(groupEl)
+    const leafEl = queryGateLeaf(groupEl)
+    if (!pivotEl || !leafEl || leafEl.tagName !== 'line') return
+
+    out[gateId] = {
+      id: gateId,
+      leaf: parseLine(leafEl, classMap),
+      pivot: {
+        x: parseNumber(pivotEl.getAttribute('cx')),
+        y: parseNumber(pivotEl.getAttribute('cy')),
+      },
+      pivotRadius: parseNumber(pivotEl.getAttribute('r')),
+      pivotPaint: getPaint(pivotEl, classMap),
+    }
+  })
+  return out
+}
+
+const parsePersonGateGeometries = (doc: Document, classMap: Record<string, SvgClassStyle>) => {
+  const legacy = parseLegacyPersonGateGeometries(doc, classMap)
+  const nested = parseNestedPersonGateGeometries(doc, classMap)
+  return { ...legacy, ...nested }
+}
+
+const parseLegacyTripodGeometries = (doc: Document, classMap: Record<string, SvgClassStyle>) => {
   const routeEls = Array.from(doc.querySelectorAll('[id$="_route_01"]'))
   const out: Record<string, GateGeometry> = {}
   routeEls.forEach((el) => {
@@ -210,7 +249,7 @@ const parseTripodGeometries = (doc: Document, classMap: Record<string, SvgClassS
   return out
 }
 
-const parseFullheightGeometries = (doc: Document, classMap: Record<string, SvgClassStyle>) => {
+const parseLegacyFullheightGeometries = (doc: Document, classMap: Record<string, SvgClassStyle>) => {
   const pivotEls = Array.from(doc.querySelectorAll('[id$="_pivot"]')).filter((el) =>
     (el.getAttribute('id') ?? '').startsWith('gate_fullheight_'),
   )
@@ -264,7 +303,150 @@ const parseFullheightGeometries = (doc: Document, classMap: Record<string, SvgCl
   return out
 }
 
+const isNestedTripodGateId = (id: string) => /^tripod_[\w\d]+$/.test(id)
+
+/** 新地图：tripod_* 分组内 route / rotor / pivot / static */
+const parseNestedTripodGeometries = (doc: Document, classMap: Record<string, SvgClassStyle>) => {
+  const out: Record<string, GateGeometry> = {}
+  Array.from(doc.querySelectorAll('g[id]')).forEach((groupEl) => {
+    const gateId = groupEl.getAttribute('id') ?? ''
+    if (!isNestedTripodGateId(gateId)) return
+
+    const route1 = queryTripodRoute(groupEl, 1)
+    const route2 = queryTripodRoute(groupEl, 2)
+    const route3 = queryTripodRoute(groupEl, 3)
+    const pivotEl = queryTripodPivot(groupEl)
+    const rotorEl = queryTripodRotor(groupEl, 1)
+    if (!route1 || !route2 || !route3 || !pivotEl) return
+
+    const route1D = route1.getAttribute('d') ?? ''
+    const route2D = route2.getAttribute('d') ?? ''
+    const route3D = route3.getAttribute('d') ?? ''
+    if (!route1D || !route2D || !route3D) return
+
+    const staticLines: Line[] = []
+    groupEl.querySelectorAll('rect[data-name="static"], line[data-name="static"]').forEach((el) => {
+      if (el instanceof SVGLineElement) {
+        staticLines.push(parseLine(el, classMap))
+      }
+    })
+
+    out[gateId] = {
+      id: gateId,
+      routes: [route1D, route2D, route3D],
+      pivot: {
+        x: parseNumber(pivotEl.getAttribute('cx')),
+        y: parseNumber(pivotEl.getAttribute('cy')),
+      },
+      pivotRadius: parseNumber(pivotEl.getAttribute('r')),
+      pivotPaint: getPaint(pivotEl, classMap),
+      rotorPaint: getPaint(rotorEl, classMap),
+      staticOutline: null,
+      staticOutlinePaint: {},
+      staticInner: null,
+      staticInnerPaint: {},
+      staticLines,
+    }
+  })
+  return out
+}
+
+const parseTripodGeometries = (doc: Document, classMap: Record<string, SvgClassStyle>) => {
+  const legacy = parseLegacyTripodGeometries(doc, classMap)
+  const nested = parseNestedTripodGeometries(doc, classMap)
+  return { ...legacy, ...nested }
+}
+
+const isNestedFullheightGateId = (id: string) => /^fullheight_[\w\d]+$/.test(id)
+
+/** 新地图：fullheight_* 分组内 static / pivot / leaf */
+const parseNestedFullheightGeometries = (doc: Document, classMap: Record<string, SvgClassStyle>) => {
+  const out: Record<string, FullheightGateGeometry> = {}
+  Array.from(doc.querySelectorAll('g[id]')).forEach((groupEl) => {
+    const gateId = groupEl.getAttribute('id') ?? ''
+    if (!isNestedFullheightGateId(gateId)) return
+
+    const pivotEl = queryGatePivot(groupEl)
+    const leafEl = queryGateLeaf(groupEl)
+    const staticEl = queryGateStatic(groupEl)
+    if (!pivotEl || !leafEl || leafEl.tagName !== 'path') return
+
+    const leafD = leafEl.getAttribute('d') ?? ''
+    if (leafD.trim().length === 0) return
+
+    const staticPaths: { d: string; paint: SvgPaint }[] = []
+    if (staticEl) {
+      const d = staticEl.getAttribute('d') ?? ''
+      if (d.trim().length > 0) staticPaths.push({ d, paint: getPaint(staticEl, classMap) })
+    }
+
+    out[gateId] = {
+      id: gateId,
+      leaf: { kind: 'path', d: leafD, paint: getPaint(leafEl, classMap) },
+      pivot: {
+        x: parseNumber(pivotEl.getAttribute('cx')),
+        y: parseNumber(pivotEl.getAttribute('cy')),
+      },
+      pivotRadius: parseNumber(pivotEl.getAttribute('r')),
+      pivotPaint: getPaint(pivotEl, classMap),
+      staticPaths,
+    }
+  })
+  return out
+}
+
+const parseFullheightGeometries = (doc: Document, classMap: Record<string, SvgClassStyle>) => {
+  const legacy = parseLegacyFullheightGeometries(doc, classMap)
+  const nested = parseNestedFullheightGeometries(doc, classMap)
+  return { ...legacy, ...nested }
+}
+
+const isNestedBarrierGateId = (id: string) =>
+  /^vehicleBarrier_[\w\d]+$/.test(id) || /^trainBarrier_[\w\d]+$/.test(id)
+
+/** 新地图：vehicleBarrier_* / trainBarrier_* 分组内 static / pivot / leaf */
+const parseNestedBarrierGeometries = (doc: Document, classMap: Record<string, SvgClassStyle>) => {
+  const out: Record<string, BarrierGateGeometry> = {}
+  Array.from(doc.querySelectorAll('g[id]')).forEach((groupEl) => {
+    const gateId = groupEl.getAttribute('id') ?? ''
+    if (!isNestedBarrierGateId(gateId)) return
+
+    const pivotEl = queryGatePivot(groupEl)
+    const leafEl = queryGateLeaf(groupEl)
+    const staticEl = queryGateStatic(groupEl)
+    if (!pivotEl || !leafEl || leafEl.tagName !== 'path') return
+
+    const leafD = leafEl.getAttribute('d') ?? ''
+    if (leafD.trim().length === 0) return
+
+    const staticPaths: { d: string; paint: SvgPaint }[] = []
+    if (staticEl) {
+      const d = staticEl.getAttribute('d') ?? ''
+      if (d.trim().length > 0) staticPaths.push({ d, paint: getPaint(staticEl, classMap) })
+    }
+
+    out[gateId] = {
+      id: gateId,
+      leaf: { d: leafD, paint: getPaint(leafEl, classMap) },
+      pivot: {
+        x: parseNumber(pivotEl.getAttribute('cx')),
+        y: parseNumber(pivotEl.getAttribute('cy')),
+      },
+      pivotRadius: parseNumber(pivotEl.getAttribute('r')),
+      pivotPaint: getPaint(pivotEl, classMap),
+      staticPaths,
+    }
+  })
+  return out
+}
+
 const parseBarrierGeometries = (doc: Document, classMap: Record<string, SvgClassStyle>) => {
+  const legacy = parseLegacyBarrierGeometries(doc, classMap)
+  const nested = parseNestedBarrierGeometries(doc, classMap)
+  return { ...legacy, ...nested }
+}
+
+const parseLegacyBarrierGeometries = (doc: Document, classMap: Record<string, SvgClassStyle>) => {
   const pivotEls = Array.from(doc.querySelectorAll('[id$="_pivot"]')).filter((el) =>
     (el.getAttribute('id') ?? '').startsWith('gate_barrier_'),
   )

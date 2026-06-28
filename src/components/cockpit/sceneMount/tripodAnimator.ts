@@ -38,6 +38,26 @@ const nextSlot = (slot: Slot, flowDirection: DoorFlowDirection): Slot => {
 
 const brightBySlot = (slot: Slot) => (slot === 2 ? 1 : 0)
 
+const DARK_OPACITY = 0.28
+
+export const applyTripodRotorDom = (
+  runtime: TripodRuntime,
+  geometry: GateGeometry,
+  rotorEls?: Array<SVGLineElement | null>,
+) => {
+  if (!rotorEls) return
+  rotorEls.forEach((el, idx) => {
+    if (!el) return
+    const endpoint = runtime.rotorEndpoints[idx] ?? geometry.pivot
+    el.setAttribute('x1', String(geometry.pivot.x))
+    el.setAttribute('y1', String(geometry.pivot.y))
+    el.setAttribute('x2', String(endpoint.x))
+    el.setAttribute('y2', String(endpoint.y))
+    const brightness = runtime.rotorBrightness[idx] ?? 0
+    el.style.opacity = String(DARK_OPACITY + (1 - DARK_OPACITY) * brightness)
+  })
+}
+
 const resolveTransition = (from: Slot, to: Slot): TransitionSpec => {
   if (from === 2 && to === 1) return { routeIndex: 0, reverse: true }
   if (from === 1 && to === 2) return { routeIndex: 0, reverse: false }
@@ -103,8 +123,11 @@ export const createTripodRuntime = (): TripodRuntime => ({
 export const initTripodRuntimeFromPaths = (runtime: TripodRuntime) => {
   const r0 = runtime.routeRefs[0]
   const r1 = runtime.routeRefs[1]
-  if (!r0 || !r1) return
+  const r2 = runtime.routeRefs[2]
+  if (!r0 || !r1 || !r2) return
   const r0Len = r0.getTotalLength()
+  const r1Len = r1.getTotalLength()
+  if (r0Len <= 0 || r1Len <= 0) return
   const slot1 = r0.getPointAtLength(0)
   const slot2 = r0.getPointAtLength(r0Len)
   const slot3 = r1.getPointAtLength(0)
@@ -132,6 +155,7 @@ export const animateTripodStep = (
   geometry: GateGeometry,
   flowDirection: DoorFlowDirection,
   durationMs: number,
+  rotorEls?: Array<SVGLineElement | null>,
 ) => {
   if (!runtime.ready) return
   stopTripodAnimation(runtime)
@@ -149,6 +173,7 @@ export const animateTripodStep = (
   runtime.rotorSlots = [...cache.fromSlots]
   runtime.rotorEndpoints = cache.fromEndpoints.map((p) => ({ ...p }))
   runtime.rotorBrightness = [...fromB]
+  applyTripodRotorDom(runtime, geometry, rotorEls)
 
   const start = performance.now()
   const step = (now: number) => {
@@ -161,6 +186,7 @@ export const animateTripodStep = (
       const tb = toBrightness[idx] ?? b
       return b + (tb - b) * raw
     })
+    applyTripodRotorDom(runtime, geometry, rotorEls)
     if (raw < 1) {
       runtime.rafId = requestAnimationFrame(step)
       return
@@ -171,6 +197,7 @@ export const animateTripodStep = (
     })
     runtime.rotorBrightness = [...toBrightness]
     runtime.rotorSlots = [...toSlots]
+    applyTripodRotorDom(runtime, geometry, rotorEls)
     runtime.rafId = null
   }
 

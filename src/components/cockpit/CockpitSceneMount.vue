@@ -1,33 +1,7 @@
-<!-- 场景挂载组件：渲染 SVG 厂区并分发各类门禁动画。 -->
+<!-- 场景挂载：原样展示 SVG 样式，并对各类门禁做动画。 -->
 <script setup lang="ts">
 import plantMapSvgRaw from '@/assets/厂区地图_画板 1.svg?raw'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
-
-/** 原图模式：按 SVG 文件原样展示（替换地图后刷新即可） */
-const SCENE_RAW_SVG_MODE = true
-/** 门禁动画开关；恢复动画时需设为 true 且 SCENE_RAW_SVG_MODE 设为 false */
-const SCENE_ANIMATION_ENABLED = false
-
-const plantMapSvgHtml = computed(() => plantMapSvgRaw.replace(/^\s*<\?xml[^>]*\?>\s*/i, '').trim())
-import {
-  animateTripodStep,
-  createTripodRuntime,
-  initTripodRuntimeFromPaths,
-  stopTripodAnimation,
-  type TripodRuntime,
-} from './sceneMount/tripodAnimator'
-import {
-  animatePersonStep,
-  createPersonRuntime,
-  stopPersonAnimation,
-  type PersonRuntime,
-} from './sceneMount/personAnimator'
-import {
-  animateFullheightStep,
-  createFullheightRuntime,
-  stopFullheightAnimation,
-  type FullheightRuntime,
-} from './sceneMount/fullheightAnimator'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   animateBarrierStep,
   createBarrierRuntime,
@@ -35,66 +9,72 @@ import {
   stopBarrierAnimation,
   type BarrierRuntime,
 } from './sceneMount/barrierAnimator'
+import {
+  animateFullheightStep,
+  createFullheightRuntime,
+  resetFullheightLeafTransform,
+  stopFullheightAnimation,
+  type FullheightRuntime,
+} from './sceneMount/fullheightAnimator'
+import {
+  animatePersonStep,
+  createPersonRuntime,
+  resetPersonLeafTransform,
+  stopPersonAnimation,
+  type PersonRuntime,
+} from './sceneMount/personAnimator'
+import { queryGateLeaf } from './sceneMount/gateParts'
 import { parseSceneGeometry } from './sceneMount/svgParser'
+import {
+  animateTripodStep,
+  applyTripodRotorDom,
+  createTripodRuntime,
+  initTripodRuntimeFromPaths,
+  stopTripodAnimation,
+  type TripodRuntime,
+} from './sceneMount/tripodAnimator'
+import { queryTripodPivot, queryTripodRoute, queryTripodRotor } from './sceneMount/tripodParts'
 import type { DoorFlowDirection } from '@/types/door'
 
-// SceneMount 编排层：
-// 1) 解析 SVG 为可渲染几何
-// 2) 维护每扇门的运行态 runtime
-// 3) 监听 doorStates 变化并分发到对应动画器
 const props = defineProps<{
   doorStates: Record<string, boolean>
   doorFlowDirections: Record<string, DoorFlowDirection>
 }>()
 
-const DURATION_MS = 1500
-const BARRIER_DURATION_MS = 3000
-const DARK_OPACITY = 0.28
+const DOOR_DURATION_MS = 1500
+const mountRef = ref<HTMLElement | null>(null)
+const plantMapSvgHtml = computed(() => plantMapSvgRaw.replace(/^\s*<\?xml[^>]*\?>\s*/i, '').trim())
 
-// 仅在动画模式解析几何；原图模式跳过以减轻开销。
-const { gateGeometries, personGateGeometries, fullheightGateGeometries, barrierGateGeometries, wallLines, wallPolylines } =
-  SCENE_RAW_SVG_MODE
-    ? {
-        gateGeometries: {} as ReturnType<typeof parseSceneGeometry>['gateGeometries'],
-        personGateGeometries: {} as ReturnType<typeof parseSceneGeometry>['personGateGeometries'],
-        fullheightGateGeometries: {} as ReturnType<typeof parseSceneGeometry>['fullheightGateGeometries'],
-        barrierGateGeometries: {} as ReturnType<typeof parseSceneGeometry>['barrierGateGeometries'],
-        wallLines: [] as ReturnType<typeof parseSceneGeometry>['wallLines'],
-        wallPolylines: [] as ReturnType<typeof parseSceneGeometry>['wallPolylines'],
-      }
-    : parseSceneGeometry(plantMapSvgRaw)
-const gateRuntimes = ref<Record<string, TripodRuntime>>({})
-const personGateRuntimes = ref<Record<string, PersonRuntime>>({})
-const fullheightGateRuntimes = ref<Record<string, FullheightRuntime>>({})
+const {
+  barrierGateGeometries,
+  fullheightGateGeometries,
+  personGateGeometries,
+  gateGeometries: tripodGateGeometries,
+} = parseSceneGeometry(plantMapSvgRaw)
 const barrierGateRuntimes = ref<Record<string, BarrierRuntime>>({})
+const fullheightGateRuntimes = ref<Record<string, FullheightRuntime>>({})
+const personGateRuntimes = ref<Record<string, PersonRuntime>>({})
+const tripodGateRuntimes = ref<Record<string, TripodRuntime>>({})
+const barrierLeafElements: Record<string, SVGGraphicsElement> = {}
+const fullheightLeafElements: Record<string, SVGGraphicsElement> = {}
+const personLeafElements: Record<string, SVGGraphicsElement> = {}
+const tripodRotorElements: Record<string, Array<SVGLineElement | null>> = {}
+const boundGateCount = ref(0)
 
-const gateIds = computed(() =>
-  Object.keys(gateGeometries).filter((id) => Object.prototype.hasOwnProperty.call(props.doorStates, id)),
-)
-const personGateIds = computed(() =>
-  Object.keys(personGateGeometries).filter((id) => Object.prototype.hasOwnProperty.call(props.doorStates, id)),
-)
-const fullheightGateIds = computed(() =>
-  Object.keys(fullheightGateGeometries).filter((id) => Object.prototype.hasOwnProperty.call(props.doorStates, id)),
-)
-const barrierGateIds = computed(() =>
-  Object.keys(barrierGateGeometries).filter((id) => Object.prototype.hasOwnProperty.call(props.doorStates, id)),
-)
+const isBarrierGate = (gateId: string) =>
+  Object.prototype.hasOwnProperty.call(barrierGateGeometries, gateId)
+const isFullheightGate = (gateId: string) =>
+  Object.prototype.hasOwnProperty.call(fullheightGateGeometries, gateId)
+const isPersonGate = (gateId: string) =>
+  Object.prototype.hasOwnProperty.call(personGateGeometries, gateId)
+const isTripodGate = (gateId: string) =>
+  Object.prototype.hasOwnProperty.call(tripodGateGeometries, gateId)
 
-// 延迟初始化：仅当某门实际渲染/触发时才创建 runtime。
-const ensureRuntime = (gateId: string): TripodRuntime => {
-  const existing = gateRuntimes.value[gateId]
+const ensureBarrierRuntime = (gateId: string): BarrierRuntime => {
+  const existing = barrierGateRuntimes.value[gateId]
   if (existing) return existing
-  const next = createTripodRuntime()
-  gateRuntimes.value = { ...gateRuntimes.value, [gateId]: next }
-  return next
-}
-
-const ensurePersonRuntime = (gateId: string): PersonRuntime => {
-  const existing = personGateRuntimes.value[gateId]
-  if (existing) return existing
-  const next = createPersonRuntime()
-  personGateRuntimes.value = { ...personGateRuntimes.value, [gateId]: next }
+  const next = createBarrierRuntime()
+  barrierGateRuntimes.value = { ...barrierGateRuntimes.value, [gateId]: next }
   return next
 }
 
@@ -106,299 +86,257 @@ const ensureFullheightRuntime = (gateId: string): FullheightRuntime => {
   return next
 }
 
-const ensureBarrierRuntime = (gateId: string): BarrierRuntime => {
-  const existing = barrierGateRuntimes.value[gateId]
+const ensurePersonRuntime = (gateId: string): PersonRuntime => {
+  const existing = personGateRuntimes.value[gateId]
   if (existing) return existing
-  const next = createBarrierRuntime()
-  barrierGateRuntimes.value = { ...barrierGateRuntimes.value, [gateId]: next }
+  const next = createPersonRuntime()
+  personGateRuntimes.value = { ...personGateRuntimes.value, [gateId]: next }
   return next
 }
 
-const gateRuntimeMap = computed<Record<string, TripodRuntime>>(() =>
-  Object.fromEntries(gateIds.value.map((doorId) => [doorId, ensureRuntime(doorId)])),
-)
-
-const personRuntimeMap = computed<Record<string, PersonRuntime>>(() =>
-  Object.fromEntries(personGateIds.value.map((doorId) => [doorId, ensurePersonRuntime(doorId)])),
-)
-
-const fullheightRuntimeMap = computed<Record<string, FullheightRuntime>>(() =>
-  Object.fromEntries(fullheightGateIds.value.map((doorId) => [doorId, ensureFullheightRuntime(doorId)])),
-)
-
-const barrierRuntimeMap = computed<Record<string, BarrierRuntime>>(() =>
-  Object.fromEntries(barrierGateIds.value.map((doorId) => [doorId, ensureBarrierRuntime(doorId)])),
-)
-
-const setRouteRef = (gateId: string, idx: number, el: unknown) => {
-  const runtime = ensureRuntime(gateId)
-  runtime.routeRefs[idx] = el instanceof SVGPathElement ? el : null
-  if (!runtime.ready && runtime.routeRefs.every((r) => r !== null)) {
-    initTripodRuntimeFromPaths(runtime)
-  }
+const ensureTripodRuntime = (gateId: string): TripodRuntime => {
+  const existing = tripodGateRuntimes.value[gateId]
+  if (existing) return existing
+  const next = createTripodRuntime()
+  tripodGateRuntimes.value = { ...tripodGateRuntimes.value, [gateId]: next }
+  return next
 }
 
-const setBarrierLeafRef = (gateId: string, el: unknown) => {
-  const leaf = el instanceof SVGGraphicsElement ? el : null
-  if (!leaf) return
+const bindOneBarrier = (gateId: string, group: Element): boolean => {
   const geometry = barrierGateGeometries[gateId]
-  if (!geometry) return
+  if (!geometry) return false
+
+  const leaf = queryGateLeaf(group)
+  if (!leaf) return false
+
+  barrierLeafElements[gateId] = leaf
   const runtime = ensureBarrierRuntime(gateId)
   if (!runtime.ready) {
     initBarrierRuntimeFromLeaf(runtime, leaf, geometry.pivot, geometry.pivotRadius)
   }
+  return runtime.ready
 }
 
-const barrierLeafTransform = (gateId: string) => {
-  const runtime = barrierRuntimeMap.value[gateId]
-  if (!runtime || !runtime.ready) return ''
-  const x = runtime.leftX
-  const sx = runtime.scaleX
-  return `translate(${x} 0) scale(${sx} 1) translate(${-x} 0)`
+const bindOneFullheight = (gateId: string, group: Element): boolean => {
+  const geometry = fullheightGateGeometries[gateId]
+  if (!geometry) return false
+
+  const leaf = queryGateLeaf(group)
+  if (!leaf) return false
+
+  fullheightLeafElements[gateId] = leaf
+  const runtime = ensureFullheightRuntime(gateId)
+  resetFullheightLeafTransform(runtime, geometry.pivot, leaf)
+  return true
 }
 
-// 将 0~1 亮度映射到可见透明度，避免“暗态完全消失”。
-const rotorOpacity = (gateId: string, idx: number) => {
-  const b = ensureRuntime(gateId).rotorBrightness[idx] ?? 0
-  return DARK_OPACITY + (1 - DARK_OPACITY) * b
+const bindOnePerson = (gateId: string, group: Element): boolean => {
+  const geometry = personGateGeometries[gateId]
+  if (!geometry) return false
+
+  const leaf = queryGateLeaf(group)
+  if (!leaf) return false
+
+  personLeafElements[gateId] = leaf
+  const runtime = ensurePersonRuntime(gateId)
+  resetPersonLeafTransform(runtime, geometry.pivot, leaf)
+  return true
 }
 
-// 门状态翻转时触发动画：
-// - gate_tripod_* -> tripodAnimator
-// - gate_fullheight_* -> fullheightAnimator
-// - gate_barrier_* -> barrierAnimator
-// - gate_person_* -> personAnimator
-if (SCENE_ANIMATION_ENABLED && !SCENE_RAW_SVG_MODE) {
-  watch(
-    () => ({ ...props.doorStates }),
-    (next, prev) => {
-      const prevState = prev ?? {}
-      Object.keys(next).forEach((doorId) => {
-        if (next[doorId] === prevState[doorId]) return
-        const flowDirection = props.doorFlowDirections[doorId] ?? 'out'
-        if (Object.prototype.hasOwnProperty.call(gateGeometries, doorId)) {
-          const geometry = gateGeometries[doorId]
-          if (!geometry) return
-          const runtime = ensureRuntime(doorId)
-          animateTripodStep(runtime, geometry, flowDirection, DURATION_MS)
-          return
-        }
-        if (Object.prototype.hasOwnProperty.call(fullheightGateGeometries, doorId)) {
-          const runtime = ensureFullheightRuntime(doorId)
-          animateFullheightStep(runtime, flowDirection, DURATION_MS)
-          return
-        }
-        if (Object.prototype.hasOwnProperty.call(barrierGateGeometries, doorId)) {
-          const runtime = ensureBarrierRuntime(doorId)
-          animateBarrierStep(runtime, flowDirection, BARRIER_DURATION_MS)
-          return
-        }
-        if (Object.prototype.hasOwnProperty.call(personGateGeometries, doorId)) {
-          const runtime = ensurePersonRuntime(doorId)
-          animatePersonStep(runtime, flowDirection, DURATION_MS)
-        }
-      })
-    },
-  )
+const findGateGroup = (svg: Element, gateId: string): Element | null =>
+  svg.querySelector(`#${CSS.escape(gateId)}`) ?? svg.ownerDocument.getElementById(gateId)
 
-  onBeforeUnmount(() => {
-    Object.keys(gateRuntimes.value).forEach((doorId) => stopTripodAnimation(ensureRuntime(doorId)))
-    Object.keys(fullheightGateRuntimes.value).forEach((doorId) =>
-      stopFullheightAnimation(ensureFullheightRuntime(doorId)),
-    )
-    Object.keys(barrierGateRuntimes.value).forEach((doorId) => stopBarrierAnimation(ensureBarrierRuntime(doorId)))
-    Object.keys(personGateRuntimes.value).forEach((doorId) => stopPersonAnimation(ensurePersonRuntime(doorId)))
+const bindOneTripod = (gateId: string, group: Element): boolean => {
+  const geometry = tripodGateGeometries[gateId]
+  if (!geometry) return false
+
+  const route1 = queryTripodRoute(group, 1)
+  const route2 = queryTripodRoute(group, 2)
+  const route3 = queryTripodRoute(group, 3)
+  const rotor1 = queryTripodRotor(group, 1)
+  const rotor2 = queryTripodRotor(group, 2)
+  const rotor3 = queryTripodRotor(group, 3)
+  const pivot = queryTripodPivot(group)
+  if (!route1 || !route2 || !route3 || !rotor1 || !rotor2 || !rotor3 || !pivot) {
+    delete tripodRotorElements[gateId]
+    return false
+  }
+
+  const runtime = ensureTripodRuntime(gateId)
+  stopTripodAnimation(runtime)
+  runtime.routeRefs = [route1, route2, route3]
+  runtime.playbackCache = null
+  runtime.ready = false
+  tripodRotorElements[gateId] = [rotor1, rotor2, rotor3]
+
+  initTripodRuntimeFromPaths(runtime)
+  if (!runtime.ready) {
+    delete tripodRotorElements[gateId]
+    return false
+  }
+  applyTripodRotorDom(runtime, geometry, tripodRotorElements[gateId])
+  return true
+}
+
+const bindAnimatedGates = () => {
+  const root = mountRef.value
+  const svg = root?.querySelector('svg')
+  if (!svg) return
+
+  let bound = 0
+  Object.keys(props.doorStates).forEach((gateId) => {
+    const group = findGateGroup(svg, gateId)
+    if (!group) return
+    if (isBarrierGate(gateId) && bindOneBarrier(gateId, group)) bound += 1
+    if (isFullheightGate(gateId) && bindOneFullheight(gateId, group)) bound += 1
+    if (isPersonGate(gateId) && bindOnePerson(gateId, group)) bound += 1
+    if (isTripodGate(gateId) && bindOneTripod(gateId, group)) bound += 1
   })
+  boundGateCount.value = bound
 }
+
+const triggerBarrierAnimation = (doorId: string) => {
+  const root = mountRef.value
+  const svg = root?.querySelector('svg')
+  const group = svg?.querySelector(`#${CSS.escape(doorId)}`)
+  if (group && !barrierLeafElements[doorId]) {
+    bindOneBarrier(doorId, group)
+  }
+
+  const geometry = barrierGateGeometries[doorId]
+  if (!geometry) return
+  const runtime = ensureBarrierRuntime(doorId)
+  const leafEl = barrierLeafElements[doorId]
+  if (!runtime.ready && leafEl) {
+    initBarrierRuntimeFromLeaf(runtime, leafEl, geometry.pivot, geometry.pivotRadius)
+  }
+  if (!runtime.ready || !leafEl) return
+  const flowDirection = props.doorFlowDirections[doorId] ?? 'out'
+  animateBarrierStep(runtime, flowDirection, DOOR_DURATION_MS, leafEl)
+}
+
+const triggerFullheightAnimation = (doorId: string) => {
+  const root = mountRef.value
+  const svg = root?.querySelector('svg')
+  const group = svg?.querySelector(`#${CSS.escape(doorId)}`)
+  if (group && !fullheightLeafElements[doorId]) {
+    bindOneFullheight(doorId, group)
+  }
+
+  const geometry = fullheightGateGeometries[doorId]
+  if (!geometry) return
+  const leafEl = fullheightLeafElements[doorId]
+  if (!leafEl) return
+  const runtime = ensureFullheightRuntime(doorId)
+  const flowDirection = props.doorFlowDirections[doorId] ?? 'out'
+  animateFullheightStep(runtime, flowDirection, DOOR_DURATION_MS, geometry.pivot, leafEl)
+}
+
+const triggerPersonAnimation = (doorId: string) => {
+  const root = mountRef.value
+  const svg = root?.querySelector('svg')
+  const group = svg?.querySelector(`#${CSS.escape(doorId)}`)
+  if (group && !personLeafElements[doorId]) {
+    bindOnePerson(doorId, group)
+  }
+
+  const geometry = personGateGeometries[doorId]
+  if (!geometry) return
+  const leafEl = personLeafElements[doorId]
+  if (!leafEl) return
+  const runtime = ensurePersonRuntime(doorId)
+  const flowDirection = props.doorFlowDirections[doorId] ?? 'out'
+  animatePersonStep(runtime, flowDirection, DOOR_DURATION_MS, geometry.pivot, geometry.leaf, leafEl)
+}
+
+const triggerTripodAnimation = (doorId: string) => {
+  const root = mountRef.value
+  const svg = root?.querySelector('svg')
+  const group = svg ? findGateGroup(svg, doorId) : null
+  if (!group) return
+
+  if (!tripodRotorElements[doorId] || !ensureTripodRuntime(doorId).ready) {
+    bindOneTripod(doorId, group)
+  }
+
+  const geometry = tripodGateGeometries[doorId]
+  if (!geometry) return
+  const runtime = ensureTripodRuntime(doorId)
+  if (!runtime.ready) return
+  const flowDirection = props.doorFlowDirections[doorId] ?? 'out'
+  animateTripodStep(runtime, geometry, flowDirection, DOOR_DURATION_MS, tripodRotorElements[doorId])
+}
+
+const triggerDoorAnimation = (doorId: string) => {
+  if (isBarrierGate(doorId)) {
+    triggerBarrierAnimation(doorId)
+    return
+  }
+  if (isFullheightGate(doorId)) {
+    triggerFullheightAnimation(doorId)
+    return
+  }
+  if (isPersonGate(doorId)) {
+    triggerPersonAnimation(doorId)
+    return
+  }
+  if (isTripodGate(doorId)) {
+    triggerTripodAnimation(doorId)
+  }
+}
+
+watch(
+  () => props.doorStates,
+  (next, prev) => {
+    if (!prev) return
+    Object.keys(next).forEach((doorId) => {
+      if (next[doorId] === prev[doorId]) return
+      if (!isBarrierGate(doorId) && !isFullheightGate(doorId) && !isPersonGate(doorId) && !isTripodGate(doorId)) {
+        return
+      }
+      triggerDoorAnimation(doorId)
+    })
+  },
+  { deep: true },
+)
+
+watch(
+  () => plantMapSvgHtml.value,
+  () => {
+    void nextTick(() => requestAnimationFrame(bindAnimatedGates))
+  },
+)
+
+onMounted(() => {
+  void nextTick(() => requestAnimationFrame(bindAnimatedGates))
+})
+
+onBeforeUnmount(() => {
+  Object.keys(barrierGateRuntimes.value).forEach((doorId) =>
+    stopBarrierAnimation(ensureBarrierRuntime(doorId)),
+  )
+  Object.keys(fullheightGateRuntimes.value).forEach((doorId) =>
+    stopFullheightAnimation(ensureFullheightRuntime(doorId)),
+  )
+  Object.keys(personGateRuntimes.value).forEach((doorId) =>
+    stopPersonAnimation(ensurePersonRuntime(doorId)),
+  )
+  Object.keys(tripodGateRuntimes.value).forEach((doorId) =>
+    stopTripodAnimation(ensureTripodRuntime(doorId)),
+  )
+})
+
+defineExpose({ boundGateCount })
 </script>
 
 <template>
   <main class="cockpit-scene" aria-label="厂区地图">
     <div
-      v-if="SCENE_RAW_SVG_MODE"
       id="cockpit-map-mount"
+      ref="mountRef"
       class="cockpit-scene__mount cockpit-scene__mount--raw"
       v-html="plantMapSvgHtml"
     />
-    <div v-else id="cockpit-map-mount" class="cockpit-scene__mount">
-      <svg
-        viewBox="0 0 1920 1080"
-        preserveAspectRatio="none"
-        class="cockpit-scene__svg"
-        role="img"
-        aria-label="tripod gate demo"
-      >
-        <polyline
-          v-for="(poly, idx) in wallPolylines"
-          :key="`wall-poly-${idx}`"
-          class="wall"
-          :points="poly.points"
-          :style="poly.paint"
-        />
-        <line
-          v-for="(line, idx) in wallLines"
-          :key="`wall-line-${idx}`"
-          class="wall"
-          :x1="line.x1"
-          :y1="line.y1"
-          :x2="line.x2"
-          :y2="line.y2"
-          :style="line.paint"
-        />
-        <g v-for="doorId in gateIds" :key="doorId">
-          <path
-            :ref="(el) => setRouteRef(doorId, 0, el)"
-            class="route route--1"
-            :d="gateGeometries[doorId]?.routes[0] ?? ''"
-          />
-          <path
-            :ref="(el) => setRouteRef(doorId, 1, el)"
-            class="route route--2"
-            :d="gateGeometries[doorId]?.routes[1] ?? ''"
-          />
-          <path
-            :ref="(el) => setRouteRef(doorId, 2, el)"
-            class="route route--3"
-            :d="gateGeometries[doorId]?.routes[2] ?? ''"
-          />
-
-          <line
-            class="rotor-line"
-            :x1="gateGeometries[doorId]?.pivot.x ?? 0"
-            :y1="gateGeometries[doorId]?.pivot.y ?? 0"
-            :x2="gateRuntimeMap[doorId]?.rotorEndpoints[0]?.x ?? 0"
-            :y2="gateRuntimeMap[doorId]?.rotorEndpoints[0]?.y ?? 0"
-            :style="{ ...gateGeometries[doorId]?.rotorPaint, opacity: rotorOpacity(doorId, 0) }"
-          />
-          <line
-            class="rotor-line"
-            :x1="gateGeometries[doorId]?.pivot.x ?? 0"
-            :y1="gateGeometries[doorId]?.pivot.y ?? 0"
-            :x2="gateRuntimeMap[doorId]?.rotorEndpoints[1]?.x ?? 0"
-            :y2="gateRuntimeMap[doorId]?.rotorEndpoints[1]?.y ?? 0"
-            :style="{ ...gateGeometries[doorId]?.rotorPaint, opacity: rotorOpacity(doorId, 1) }"
-          />
-          <line
-            class="rotor-line"
-            :x1="gateGeometries[doorId]?.pivot.x ?? 0"
-            :y1="gateGeometries[doorId]?.pivot.y ?? 0"
-            :x2="gateRuntimeMap[doorId]?.rotorEndpoints[2]?.x ?? 0"
-            :y2="gateRuntimeMap[doorId]?.rotorEndpoints[2]?.y ?? 0"
-            :style="{ ...gateGeometries[doorId]?.rotorPaint, opacity: rotorOpacity(doorId, 2) }"
-          />
-
-          <circle
-            class="pivot"
-            :cx="gateGeometries[doorId]?.pivot.x ?? 0"
-            :cy="gateGeometries[doorId]?.pivot.y ?? 0"
-            :r="gateGeometries[doorId]?.pivotRadius"
-            :style="gateGeometries[doorId]?.pivotPaint"
-          />
-          <rect
-            v-if="gateGeometries[doorId]?.staticOutline"
-            class="static-outline"
-            :x="gateGeometries[doorId]?.staticOutline?.x"
-            :y="gateGeometries[doorId]?.staticOutline?.y"
-            :width="gateGeometries[doorId]?.staticOutline?.width"
-            :height="gateGeometries[doorId]?.staticOutline?.height"
-            :style="gateGeometries[doorId]?.staticOutlinePaint"
-          />
-          <rect
-            v-if="gateGeometries[doorId]?.staticInner"
-            class="static-inner"
-            :x="gateGeometries[doorId]?.staticInner?.x"
-            :y="gateGeometries[doorId]?.staticInner?.y"
-            :width="gateGeometries[doorId]?.staticInner?.width"
-            :height="gateGeometries[doorId]?.staticInner?.height"
-            :style="gateGeometries[doorId]?.staticInnerPaint"
-          />
-          <line
-            v-for="(line, lineIdx) in gateGeometries[doorId]?.staticLines ?? []"
-            :key="`${doorId}-line-${lineIdx}`"
-            class="static-inner"
-            :x1="line.x1"
-            :y1="line.y1"
-            :x2="line.x2"
-            :y2="line.y2"
-            :style="line.paint"
-          />
-        </g>
-        <g v-for="doorId in fullheightGateIds" :key="doorId">
-          <path
-            v-for="(sp, spIdx) in fullheightGateGeometries[doorId]?.staticPaths ?? []"
-            :key="`${doorId}-fh-static-${spIdx}`"
-            class="fullheight-static"
-            :d="sp.d"
-            :style="sp.paint"
-          />
-          <line
-            v-if="fullheightGateGeometries[doorId]?.leaf?.kind === 'line'"
-            class="fullheight-leaf"
-            :x1="fullheightGateGeometries[doorId]?.leaf?.x1"
-            :y1="fullheightGateGeometries[doorId]?.leaf?.y1"
-            :x2="fullheightGateGeometries[doorId]?.leaf?.x2"
-            :y2="fullheightGateGeometries[doorId]?.leaf?.y2"
-            :transform="`rotate(${fullheightRuntimeMap[doorId]?.angleDeg ?? 0}, ${fullheightGateGeometries[doorId]?.pivot.x ?? 0}, ${fullheightGateGeometries[doorId]?.pivot.y ?? 0})`"
-            :style="fullheightGateGeometries[doorId]?.leaf?.paint"
-          />
-          <path
-            v-else-if="fullheightGateGeometries[doorId]?.leaf?.kind === 'path'"
-            class="fullheight-leaf"
-            :d="fullheightGateGeometries[doorId]?.leaf?.d ?? ''"
-            :transform="`rotate(${fullheightRuntimeMap[doorId]?.angleDeg ?? 0}, ${fullheightGateGeometries[doorId]?.pivot.x ?? 0}, ${fullheightGateGeometries[doorId]?.pivot.y ?? 0})`"
-            :style="fullheightGateGeometries[doorId]?.leaf?.paint"
-          />
-          <circle
-            class="fullheight-pivot"
-            :cx="fullheightGateGeometries[doorId]?.pivot.x ?? 0"
-            :cy="fullheightGateGeometries[doorId]?.pivot.y ?? 0"
-            :r="fullheightGateGeometries[doorId]?.pivotRadius"
-            :style="fullheightGateGeometries[doorId]?.pivotPaint"
-          />
-        </g>
-        <g v-for="doorId in barrierGateIds" :key="doorId">
-          <path
-            v-for="(sp, spIdx) in barrierGateGeometries[doorId]?.staticPaths ?? []"
-            :key="`${doorId}-barrier-static-${spIdx}`"
-            class="barrier-static"
-            :d="sp.d"
-            :style="sp.paint"
-          />
-          <path
-            class="barrier-leaf"
-            :ref="(el) => setBarrierLeafRef(doorId, el)"
-            :d="barrierGateGeometries[doorId]?.leaf.d ?? ''"
-            :style="barrierGateGeometries[doorId]?.leaf.paint"
-            :transform="barrierLeafTransform(doorId)"
-          />
-          <circle
-            class="barrier-pivot"
-            :cx="barrierGateGeometries[doorId]?.pivot.x ?? 0"
-            :cy="barrierGateGeometries[doorId]?.pivot.y ?? 0"
-            :r="barrierGateGeometries[doorId]?.pivotRadius"
-            :style="barrierGateGeometries[doorId]?.pivotPaint"
-          />
-        </g>
-        <g v-for="doorId in personGateIds" :key="doorId">
-          <line
-            class="person-leaf"
-            :x1="personGateGeometries[doorId]?.leaf.x1 ?? 0"
-            :y1="personGateGeometries[doorId]?.leaf.y1 ?? 0"
-            :x2="personGateGeometries[doorId]?.leaf.x2 ?? 0"
-            :y2="personGateGeometries[doorId]?.leaf.y2 ?? 0"
-            :transform="`rotate(${personRuntimeMap[doorId]?.angleDeg ?? 0}, ${personGateGeometries[doorId]?.pivot.x ?? 0}, ${personGateGeometries[doorId]?.pivot.y ?? 0})`"
-            :style="personGateGeometries[doorId]?.leaf.paint"
-          />
-          <circle
-            class="person-pivot"
-            :cx="personGateGeometries[doorId]?.pivot.x ?? 0"
-            :cy="personGateGeometries[doorId]?.pivot.y ?? 0"
-            :r="personGateGeometries[doorId]?.pivotRadius"
-            :style="personGateGeometries[doorId]?.pivotPaint"
-          />
-        </g>
-      </svg>
-    </div>
   </main>
 </template>
 
@@ -425,35 +363,4 @@ if (SCENE_ANIMATION_ENABLED && !SCENE_RAW_SVG_MODE) {
   display: block;
   user-select: none;
 }
-
-.cockpit-scene__svg {
-  width: 100%;
-  height: 100%;
-  user-select: none;
-}
-
-.route {
-  display: none;
-}
-
-.rotor-line {
-  stroke-linecap: round;
-}
-
-.wall {
-  stroke-miterlimit: 10;
-}
-
-.person-leaf {
-  stroke-linecap: round;
-}
-
-.fullheight-leaf {
-  stroke-linecap: round;
-}
-
-.barrier-leaf {
-  stroke-linecap: round;
-}
 </style>
-

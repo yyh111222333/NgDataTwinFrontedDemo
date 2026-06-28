@@ -1,43 +1,24 @@
-<!-- 调试面板：切换数据源并在 mock 模式下手动改写大屏数据。 -->
+<!-- 门禁动画测试面板（F8）：道闸 + 人脸门禁（全高闸） -->
 <script setup lang="ts">
-import type { RailStatus } from '@/types/dashboard'
+import { groupSceneDoorLabel } from '@/components/cockpit/sceneMount/sceneDoorIds'
 import type { DoorFlowDirection } from '@/types/door'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
-export type CockpitDataSource = 'mock' | 'api'
-
-// 调试面板：用于切换 mock/api 数据源，并在 mock 模式下做实时数据注入。
 const props = defineProps<{
   visible: boolean
-  dataSource: CockpitDataSource
-  apiLoading?: boolean
-  apiError?: string | null
-  onlineAccess: number
-  areaTotal: number
-  vehiclesOnSite: number
-  railStatus: RailStatus
   doorIds: string[]
   selectedDoorId: string
   selectedDoorOpen: boolean
   selectedDoorFlowDirection: DoorFlowDirection
+  animationReadyCount: number
 }>()
 
 const emit = defineEmits<{
-  (e: 'update:dataSource', value: CockpitDataSource): void
-  (e: 'refresh'): void
-  (e: 'update:onlineAccess', value: number): void
-  (e: 'update:areaTotal', value: number): void
-  (e: 'update:vehiclesOnSite', value: number): void
-  (e: 'update:railStatus', value: RailStatus): void
   (e: 'update:selectedDoorId', value: string): void
-  (e: 'toggleSelectedDoor'): void
-  (e: 'toggleSelectedDoorFlowDirection'): void
+  (e: 'triggerAnimation'): void
+  (e: 'toggleFlowDirection'): void
+  (e: 'openAll'): void
 }>()
-
-const toNum = (v: string) => {
-  const parsed = Number(v)
-  return Number.isFinite(parsed) ? parsed : 0
-}
 
 const panelRef = ref<HTMLElement | null>(null)
 const panelLeft = ref(0)
@@ -46,9 +27,15 @@ const isDragging = ref(false)
 let dragOffsetX = 0
 let dragOffsetY = 0
 
+const vehicleDoors = computed(() => props.doorIds.filter((id) => id.startsWith('vehicleBarrier_')))
+const trainDoors = computed(() => props.doorIds.filter((id) => id.startsWith('trainBarrier_')))
+const fullheightDoors = computed(() => props.doorIds.filter((id) => id.startsWith('fullheight_')))
+const tripodDoors = computed(() => props.doorIds.filter((id) => id.startsWith('tripod_')))
+const personDoors = computed(() => props.doorIds.filter((id) => id.startsWith('person_')))
+const selectedDoorLabel = computed(() => groupSceneDoorLabel(props.selectedDoorId))
+
 const clamp = (val: number, min: number, max: number) => Math.min(max, Math.max(min, val))
 
-// 处理 autofit 缩放后的拖拽坐标换算，避免面板“鼠标点上去就偏移”。
 const getDragContext = () => {
   const panelEl = panelRef.value
   if (!panelEl) return null
@@ -61,7 +48,7 @@ const getDragContext = () => {
 }
 
 const placePanelToDefault = () => {
-  const panelWidth = panelRef.value?.offsetWidth ?? 280
+  const panelWidth = panelRef.value?.offsetWidth ?? 300
   const parentWidth = (panelRef.value?.offsetParent as HTMLElement | null)?.offsetWidth ?? window.innerWidth
   panelLeft.value = Math.max(0, parentWidth - panelWidth - 20)
   panelTop.value = 96
@@ -104,8 +91,6 @@ const onResize = () => {
   panelTop.value = clamp(panelTop.value, 0, Math.max(0, ctx.parentEl.offsetHeight - panelHeight))
 }
 
-const editLocked = computed(() => props.dataSource === 'api' || props.apiLoading === true)
-
 onMounted(() => {
   placePanelToDefault()
   window.addEventListener('mousemove', onDragMove)
@@ -124,122 +109,85 @@ onBeforeUnmount(() => {
   <aside
     v-if="visible"
     ref="panelRef"
-    class="cockpit-debug-panel"
+    class="scene-debug-panel"
     :style="{ left: `${panelLeft}px`, top: `${panelTop}px` }"
   >
-    <div class="cockpit-debug-panel__title cockpit-debug-panel__title--drag" @mousedown.prevent="startDrag">
-      测试面板（F8）
+    <div class="scene-debug-panel__title scene-debug-panel__title--drag" @mousedown.prevent="startDrag">
+      门禁动画测试（F8）
     </div>
 
-    <label class="cockpit-debug-panel__row">
-      <span>数据来源</span>
+    <p class="scene-debug-panel__hint">
+      地图样式来自 SVG 原文件。连锁管控门为摆门动画；道闸为收缩；人脸门禁为旋转；火车道管控门为三辊闸轨迹。
+    </p>
+
+    <p class="scene-debug-panel__meta">
+      已绑定 {{ animationReadyCount }} / {{ doorIds.length }} 个门禁
+    </p>
+
+    <label class="scene-debug-panel__row">
+      <span>选择门禁</span>
       <select
-        class="cockpit-debug-panel__select-wide"
-        :value="dataSource"
-        :disabled="apiLoading"
-        @change="emit('update:dataSource', ($event.target as HTMLSelectElement).value as CockpitDataSource)"
-      >
-        <option value="mock">本地模拟</option>
-        <option value="api">接口</option>
-      </select>
-    </label>
-
-    <p v-if="apiError" class="cockpit-debug-panel__error">{{ apiError }}</p>
-
-    <div v-if="dataSource === 'api'" class="cockpit-debug-panel__row cockpit-debug-panel__row--actions">
-      <button
-        type="button"
-        class="cockpit-debug-panel__btn"
-        :disabled="apiLoading"
-        @click="emit('refresh')"
-      >
-        {{ apiLoading ? '拉取中…' : '重新拉取' }}
-      </button>
-    </div>
-
-    <div class="cockpit-debug-panel__split"></div>
-    <div class="cockpit-debug-panel__title">概览数值</div>
-    <p v-if="editLocked" class="cockpit-debug-panel__hint">接口模式下为只读</p>
-
-    <label class="cockpit-debug-panel__row">
-      <span>在线门禁</span>
-      <input
-        type="number"
-        :value="onlineAccess"
-        min="0"
-        :disabled="editLocked"
-        @input="emit('update:onlineAccess', toNum(($event.target as HTMLInputElement).value))"
-      />
-    </label>
-
-    <label class="cockpit-debug-panel__row">
-      <span>区域总人数</span>
-      <input
-        type="number"
-        :value="areaTotal"
-        min="0"
-        :disabled="editLocked"
-        @input="emit('update:areaTotal', toNum(($event.target as HTMLInputElement).value))"
-      />
-    </label>
-
-    <label class="cockpit-debug-panel__row">
-      <span>车辆在场</span>
-      <input
-        type="number"
-        :value="vehiclesOnSite"
-        min="0"
-        :disabled="editLocked"
-        @input="emit('update:vehiclesOnSite', toNum(($event.target as HTMLInputElement).value))"
-      />
-    </label>
-
-    <label class="cockpit-debug-panel__row">
-      <span>火车道状态</span>
-      <select
-        :value="railStatus"
-        :disabled="editLocked"
-        @change="emit('update:railStatus', ($event.target as HTMLSelectElement).value as RailStatus)"
-      >
-        <option value="空闲">空闲（绿色）</option>
-        <option value="占用">占用（红色）</option>
-      </select>
-    </label>
-
-    <label class="cockpit-debug-panel__row">
-      <span>门选择</span>
-      <select
+        class="scene-debug-panel__select-wide"
         :value="selectedDoorId"
-        :disabled="editLocked"
         @change="emit('update:selectedDoorId', ($event.target as HTMLSelectElement).value)"
       >
-        <option v-for="doorId in doorIds" :key="doorId" :value="doorId">{{ doorId }}</option>
+        <optgroup v-if="personDoors.length" label="连锁管控门 person">
+          <option v-for="doorId in personDoors" :key="doorId" :value="doorId">
+            {{ doorId }}
+          </option>
+        </optgroup>
+        <optgroup v-if="tripodDoors.length" label="火车道管控门 tripod">
+          <option v-for="doorId in tripodDoors" :key="doorId" :value="doorId">
+            {{ doorId }}
+          </option>
+        </optgroup>
+        <optgroup v-if="fullheightDoors.length" label="人脸门禁 fullheight">
+          <option v-for="doorId in fullheightDoors" :key="doorId" :value="doorId">
+            {{ doorId }}
+          </option>
+        </optgroup>
+        <optgroup v-if="vehicleDoors.length" label="汽车道闸 vehicleBarrier">
+          <option v-for="doorId in vehicleDoors" :key="doorId" :value="doorId">
+            {{ doorId }}
+          </option>
+        </optgroup>
+        <optgroup v-if="trainDoors.length" label="火车道闸 trainBarrier">
+          <option v-for="doorId in trainDoors" :key="doorId" :value="doorId">
+            {{ doorId }}
+          </option>
+        </optgroup>
       </select>
     </label>
 
-    <div class="cockpit-debug-panel__row cockpit-debug-panel__row--actions">
-      <button type="button" class="cockpit-debug-panel__btn" :disabled="editLocked" @click="emit('toggleSelectedDoor')">
-        {{ selectedDoorOpen ? '关门' : '开门' }}
+    <p class="scene-debug-panel__meta">
+      当前：{{ selectedDoorLabel }} · {{ selectedDoorOpen ? '开' : '关' }} ·
+      {{ selectedDoorFlowDirection === 'out' ? '出' : '进' }}
+    </p>
+
+    <div class="scene-debug-panel__row scene-debug-panel__row--actions">
+      <button type="button" class="scene-debug-panel__btn scene-debug-panel__btn--primary" @click="emit('triggerAnimation')">
+        触发开关动画
       </button>
-      <button
-        type="button"
-        class="cockpit-debug-panel__btn"
-        :disabled="editLocked"
-        @click="emit('toggleSelectedDoorFlowDirection')"
-      >
-        {{ selectedDoorFlowDirection === 'out' ? '出' : '进' }}
+      <button type="button" class="scene-debug-panel__btn" @click="emit('toggleFlowDirection')">
+        方向：{{ selectedDoorFlowDirection === 'out' ? '出' : '进' }}
+      </button>
+    </div>
+
+    <div class="scene-debug-panel__row scene-debug-panel__row--actions">
+      <button type="button" class="scene-debug-panel__btn" @click="emit('openAll')">
+        全部触发
       </button>
     </div>
   </aside>
 </template>
 
 <style scoped>
-.cockpit-debug-panel {
+.scene-debug-panel {
   position: absolute;
   left: 0;
   top: 96px;
   z-index: 30;
-  width: 280px;
+  width: 300px;
   padding: 14px 12px;
   border: 1px solid rgba(48, 220, 255, 0.45);
   border-radius: 8px;
@@ -247,33 +195,54 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 14px rgba(48, 220, 255, 0.2);
   pointer-events: auto;
 }
-.cockpit-debug-panel__title {
-  margin-bottom: 10px;
+
+.scene-debug-panel__title {
+  margin-bottom: 8px;
   font-size: 13px;
+  font-weight: 600;
   color: #9fefff;
 }
-.cockpit-debug-panel__title--drag {
+
+.scene-debug-panel__title--drag {
   cursor: move;
   user-select: none;
 }
-.cockpit-debug-panel__row {
+
+.scene-debug-panel__hint {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(180, 230, 255, 0.78);
+}
+
+.scene-debug-panel__meta {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: rgba(160, 210, 230, 0.72);
+}
+
+.scene-debug-panel__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-top: 8px;
   gap: 12px;
 }
-.cockpit-debug-panel__row--actions {
+
+.scene-debug-panel__row--actions {
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
-.cockpit-debug-panel__row span {
+
+.scene-debug-panel__row span {
   color: rgba(220, 245, 255, 0.9);
   font-size: 12px;
+  flex-shrink: 0;
 }
-.cockpit-debug-panel__row input,
-.cockpit-debug-panel__row select {
-  width: 120px;
-  height: 28px;
+
+.scene-debug-panel__row select {
+  width: 168px;
+  height: 30px;
   border: 1px solid rgba(48, 220, 255, 0.35);
   border-radius: 4px;
   background: rgba(7, 21, 36, 0.9);
@@ -282,11 +251,13 @@ onBeforeUnmount(() => {
   padding: 0 8px;
   outline: none;
 }
-.cockpit-debug-panel__select-wide {
-  width: 160px !important;
+
+.scene-debug-panel__select-wide {
+  width: 168px !important;
 }
-.cockpit-debug-panel__btn {
-  height: 28px;
+
+.scene-debug-panel__btn {
+  height: 30px;
   padding: 0 12px;
   border: 1px solid rgba(48, 220, 255, 0.45);
   border-radius: 4px;
@@ -295,23 +266,14 @@ onBeforeUnmount(() => {
   font-size: 12px;
   cursor: pointer;
 }
-.cockpit-debug-panel__btn:disabled {
+
+.scene-debug-panel__btn--primary {
+  border-color: rgba(85, 239, 150, 0.55);
+  color: #d8ffe8;
+}
+
+.scene-debug-panel__btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
-}
-.cockpit-debug-panel__hint {
-  margin: 4px 0 0;
-  font-size: 11px;
-  color: rgba(180, 230, 255, 0.75);
-}
-.cockpit-debug-panel__error {
-  margin: 6px 0 0;
-  font-size: 11px;
-  line-height: 1.35;
-  color: #ff9b9b;
-}
-.cockpit-debug-panel__split {
-  margin-top: 10px;
-  border-top: 1px dashed rgba(48, 220, 255, 0.25);
 }
 </style>

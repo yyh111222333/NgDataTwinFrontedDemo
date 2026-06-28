@@ -1,4 +1,4 @@
-// 直杆道闸动画：leaf 以左端为锚点做水平收缩到 pivot 圆周交点，再复原；in/out 共用同一段。
+// 直杆道闸动画：以 pivot 铰链侧为锚点水平收缩，再复原。
 import type { DoorFlowDirection } from '@/types/door'
 import type { Point } from './svgParser'
 
@@ -8,8 +8,8 @@ export type BarrierRuntime = {
   rafId: number | null
   ready: boolean
   bbox: BBox | null
-  leftX: number
-  rightX: number
+  /** 水平缩放锚点（靠近 pivot 一侧） */
+  anchorX: number
   startScaleX: number
   endScaleX: number
   scaleX: number
@@ -19,8 +19,7 @@ export const createBarrierRuntime = (): BarrierRuntime => ({
   rafId: null,
   ready: false,
   bbox: null,
-  leftX: 0,
-  rightX: 0,
+  anchorX: 0,
   startScaleX: 1,
   endScaleX: 1,
   scaleX: 1,
@@ -33,18 +32,29 @@ export const stopBarrierAnimation = (runtime: BarrierRuntime) => {
   }
 }
 
-const resolveIntersectRightX = (rightMidX: number, rightMidY: number, pivot: Point, pivotRadius: number): number => {
+const resolveIntersectX = (
+  fromX: number,
+  fromY: number,
+  pivot: Point,
+  pivotRadius: number,
+): number => {
   if (pivotRadius <= 0) return pivot.x
-  const dy = rightMidY - pivot.y
-  const side = rightMidX >= pivot.x ? 1 : -1
-  // 与 y=rightMidY 的水平线求圆交点；若无交点则退化到同侧圆极值点。
+  const dy = fromY - pivot.y
+  const towardPivot = fromX >= pivot.x ? -1 : 1
   if (Math.abs(dy) > pivotRadius) {
-    return pivot.x + side * pivotRadius
+    return pivot.x + towardPivot * pivotRadius
   }
   const dx = Math.sqrt(Math.max(0, pivotRadius * pivotRadius - dy * dy))
   const x1 = pivot.x - dx
   const x2 = pivot.x + dx
-  return side >= 0 ? Math.max(x1, x2) : Math.min(x1, x2)
+  return towardPivot < 0 ? Math.min(x1, x2) : Math.max(x1, x2)
+}
+
+const applyBarrierLeafTransform = (runtime: BarrierRuntime, leafEl?: SVGGraphicsElement | null) => {
+  if (!leafEl || !runtime.ready) return
+  const x = runtime.anchorX
+  const sx = runtime.scaleX
+  leafEl.setAttribute('transform', `translate(${x} 0) scale(${sx} 1) translate(${-x} 0)`)
 }
 
 export const initBarrierRuntimeFromLeaf = (
@@ -55,29 +65,32 @@ export const initBarrierRuntimeFromLeaf = (
 ) => {
   const box = leafEl.getBBox()
   if (box.width <= 0 || box.height <= 0) return
-  const leftX = box.x
-  const rightMidX = box.x + box.width
-  const rightMidY = box.y + box.height / 2
-  const endX = resolveIntersectRightX(rightMidX, rightMidY, pivot, pivotRadius)
-  const minRight = leftX + 0.5
-  const rightX = rightMidX
-  const targetRightX = Math.min(rightX, Math.max(minRight, endX))
-  const span = Math.max(0.5, rightX - leftX)
-  const endScale = Math.max(0.001, Math.min(1, (targetRightX - leftX) / span))
+
+  const left = box.x
+  const right = box.x + box.width
+  const midY = box.y + box.height / 2
+  const hingeOnLeft = Math.abs(pivot.x - left) <= Math.abs(pivot.x - right)
+  const anchorX = hingeOnLeft ? left : right
+  const farX = hingeOnLeft ? right : left
+  const fullSpan = Math.max(0.5, Math.abs(farX - anchorX))
+  const targetFarX = resolveIntersectX(farX, midY, pivot, pivotRadius)
+  const collapsedSpan = Math.max(0.5, Math.abs(targetFarX - anchorX))
+  const endScale = Math.max(0.001, Math.min(1, collapsedSpan / fullSpan))
+
   runtime.bbox = { x: box.x, y: box.y, width: box.width, height: box.height }
-  runtime.leftX = leftX
-  runtime.rightX = rightX
+  runtime.anchorX = anchorX
   runtime.startScaleX = 1
   runtime.endScaleX = endScale
-  runtime.scaleX = runtime.startScaleX
+  runtime.scaleX = 1
   runtime.ready = true
+  applyBarrierLeafTransform(runtime, leafEl)
 }
 
-// in/out 同一段：前半程收缩，后半程复原。
 export const animateBarrierStep = (
   runtime: BarrierRuntime,
   _flowDirection: DoorFlowDirection,
   durationMs: number,
+  leafEl?: SVGGraphicsElement | null,
 ) => {
   if (!runtime.ready) return
   stopBarrierAnimation(runtime)
@@ -89,11 +102,13 @@ export const animateBarrierStep = (
     const raw = Math.min(1, (now - start) / durationMs)
     const phase = raw <= 0.5 ? raw / 0.5 : (1 - raw) / 0.5
     runtime.scaleX = from + (to - from) * phase
+    applyBarrierLeafTransform(runtime, leafEl)
     if (raw < 1) {
       runtime.rafId = requestAnimationFrame(step)
       return
     }
     runtime.scaleX = from
+    applyBarrierLeafTransform(runtime, leafEl)
     runtime.rafId = null
   }
 

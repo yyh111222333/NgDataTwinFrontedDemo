@@ -9,10 +9,14 @@ import CockpitDrivingMonitorOverview from '@/components/cockpit/CockpitDrivingMo
 import CockpitSmartMonitorOverview from '@/components/cockpit/CockpitSmartMonitorOverview.vue'
 import CockpitVehicleOverview from '@/components/cockpit/CockpitVehicleOverview.vue'
 import CockpitPersonnelOverview from '@/components/cockpit/CockpitPersonnelOverview.vue'
+import CockpitGateAccessFeed from '@/components/cockpit/CockpitGateAccessFeed.vue'
 import CockpitSceneMount from '@/components/cockpit/CockpitSceneMount.vue'
 import CockpitSidePanels from '@/components/cockpit/CockpitSidePanels.vue'
 import { getDashboardOverview, getDeviceStatusOptions } from '@/api/dashboard'
+import { useGateAccessEvents } from '@/composables/useGateAccessEvents'
 import { useBackendHealth } from '@/composables/useBackendHealth'
+import { applyGateAccessEvents } from '@/utils/apply-gate-access-event'
+import type { GateAccessEvent } from '@/types/gate-access'
 import {
   DASHBOARD_DEVICE_REGIONS,
   DASHBOARD_DEVICE_TYPES,
@@ -25,6 +29,7 @@ import {
 } from '@/config/cockpit'
 import CockpitShell from '@/layouts/CockpitShell.vue'
 import plantMapSvgRaw from '@/assets/厂区地图_画板 1.svg?raw'
+import { extractSceneDoorIds } from '@/components/cockpit/sceneMount/sceneDoorIds'
 import type { DoorFlowDirection } from '@/types/door'
 import type {
   DashboardDeviceRecord,
@@ -37,33 +42,14 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 const { backendOnline, healthError } = useBackendHealth()
 
-// 从 SVG 元素 id 推断门 id（去掉可动部件后缀，保留门级标识）。
-const extractDoorIdsFromSvg = (svgRaw: string): string[] => {
-  const idRegex = /\sid="([^"]+)"/g
-  const out = new Set<string>()
-  let m: RegExpExecArray | null = null
-  while ((m = idRegex.exec(svgRaw)) !== null) {
-    const id = m[1] ?? ''
-    const normalized = id
-      .replace(/_route_\d+$/i, '')
-      .replace(/_rotor_\d+$/i, '')
-      .replace(/_leaf_\d+$/i, '')
-      .replace(/_leaf$/i, '')
-      .replace(/_pivot$/i, '')
-      .replace(/_static(?:-\d+)?$/i, '')
-    if (normalized.startsWith('door_') || normalized.startsWith('gate_')) {
-      out.add(normalized)
-    }
-  }
-  return Array.from(out)
-}
-
-const MOCK_DOOR_IDS = extractDoorIdsFromSvg(plantMapSvgRaw)
-const DEFAULT_DOOR_ID = MOCK_DOOR_IDS[0] ?? 'gate_tripod_A_01'
+const SCENE_DOOR_IDS = extractSceneDoorIds(plantMapSvgRaw)
+const VALID_SCENE_DOOR_IDS = new Set(SCENE_DOOR_IDS)
+const DEFAULT_DOOR_ID = SCENE_DOOR_IDS[0] ?? ''
+const recentGateAccessEvents = ref<GateAccessEvent[]>([])
 const createDoorStateMap = (value: boolean) =>
-  Object.fromEntries(MOCK_DOOR_IDS.map((id) => [id, value])) as Record<string, boolean>
+  Object.fromEntries(SCENE_DOOR_IDS.map((id) => [id, value])) as Record<string, boolean>
 const createDoorFlowDirectionMap = (value: DoorFlowDirection) =>
-  Object.fromEntries(MOCK_DOOR_IDS.map((id) => [id, value])) as Record<string, DoorFlowDirection>
+  Object.fromEntries(SCENE_DOOR_IDS.map((id) => [id, value])) as Record<string, DoorFlowDirection>
 
 const leftPanels = panels.filter((panel) => panel.side === 'left')
 const rightPanels = panels.filter((panel) => panel.side === 'right')
@@ -72,6 +58,7 @@ const dateText = ref('')
 const timeText = ref('')
 const weekText = ref('')
 const showDebugPanel = ref(false)
+const sceneMountRef = ref<InstanceType<typeof CockpitSceneMount> | null>(null)
 const dataSource = ref<'mock' | 'api'>('mock')
 const apiLoading = ref(false)
 const apiError = ref<string | null>(null)
@@ -346,14 +333,13 @@ const handleMockRailStatusUpdate = (value: RailStatus) => {
 }
 
 const handleMockSelectedDoorUpdate = (value: string) => {
-  if (dataSource.value === 'api') return
   mockState.value = { ...mockState.value, selectedDoorId: value }
   projectMockToCurrent()
 }
 
-const handleToggleSelectedDoor = () => {
-  if (dataSource.value === 'api') return
+const handleTriggerSelectedDoorAnimation = () => {
   const doorId = mockState.value.selectedDoorId
+  if (!doorId) return
   mockState.value = {
     ...mockState.value,
     doorStates: {
@@ -365,8 +351,8 @@ const handleToggleSelectedDoor = () => {
 }
 
 const handleToggleSelectedDoorFlowDirection = () => {
-  if (dataSource.value === 'api') return
   const doorId = mockState.value.selectedDoorId
+  if (!doorId) return
   const current = mockState.value.doorFlowDirections[doorId] ?? 'out'
   mockState.value = {
     ...mockState.value,
@@ -377,15 +363,72 @@ const handleToggleSelectedDoorFlowDirection = () => {
   }
   projectMockToCurrent()
 }
+
+const handleTriggerAllDoorAnimations = () => {
+  const batchDirection =
+    mockState.value.doorFlowDirections[mockState.value.selectedDoorId] ?? 'out'
+  const nextFlowDirections = Object.fromEntries(
+    SCENE_DOOR_IDS.map((id) => [id, batchDirection]),
+  ) as Record<string, DoorFlowDirection>
+  const nextStates = { ...mockState.value.doorStates }
+  SCENE_DOOR_IDS.forEach((id) => {
+    nextStates[id] = !nextStates[id]
+  })
+  mockState.value = {
+    ...mockState.value,
+    doorFlowDirections: nextFlowDirections,
+    doorStates: nextStates,
+  }
+  projectMockToCurrent()
+}
+
+const prependGateAccessEvents = (events: GateAccessEvent[]) => {
+  if (events.length === 0) return
+  recentGateAccessEvents.value = [...events, ...recentGateAccessEvents.value].slice(0, 20)
+}
+
+const applyGateEventsToViewState = (events: GateAccessEvent[]) => {
+  if (events.length === 0) return
+  prependGateAccessEvents(events)
+
+  if (dataSource.value === 'mock') {
+    mockState.value = {
+      ...mockState.value,
+      ...applyGateAccessEvents(mockState.value, events, VALID_SCENE_DOOR_IDS),
+    }
+    projectMockToCurrent()
+    return
+  }
+
+  currentState.value = {
+    ...currentState.value,
+    ...applyGateAccessEvents(currentState.value, events, VALID_SCENE_DOOR_IDS),
+  }
+}
+
+const gateAccessPollingEnabled = computed(() => true)
+
+useGateAccessEvents({
+  enabled: gateAccessPollingEnabled,
+  useMock: computed(() => dataSource.value === 'mock'),
+  animatableDoorIds: SCENE_DOOR_IDS,
+  validDoorIds: VALID_SCENE_DOOR_IDS,
+  onEvents: applyGateEventsToViewState,
+  onError: (error) => {
+    apiError.value = error instanceof Error ? error.message : String(error)
+  },
+})
 </script>
 
 <template>
   <CockpitShell>
     <div class="cockpit">
       <CockpitSceneMount
+        ref="sceneMountRef"
         :door-states="currentState.doorStates"
         :door-flow-directions="currentState.doorFlowDirections"
       />
+      <CockpitGateAccessFeed :events="recentGateAccessEvents" />
       <CockpitHeader
         :date-text="dateText"
         :time-text="timeText"
@@ -439,25 +482,15 @@ const handleToggleSelectedDoorFlowDirection = () => {
       <!-- 置于 main 外，避免 pointer-events:none 与顶栏 z-index 遮挡 -->
       <CockpitDebugPanel
         :visible="showDebugPanel"
-        v-model:data-source="dataSource"
-        :api-loading="apiLoading"
-        :api-error="apiError"
-        :online-access="currentState.onlineAccess"
-        :area-total="currentState.areaTotal"
-        :vehicles-on-site="currentState.vehiclesOnSite"
-        :rail-status="currentState.railStatus"
-        :door-ids="MOCK_DOOR_IDS"
+        :door-ids="SCENE_DOOR_IDS"
+        :animation-ready-count="sceneMountRef?.boundGateCount ?? 0"
         :selected-door-id="currentState.selectedDoorId"
         :selected-door-open="currentState.doorStates[currentState.selectedDoorId] ?? false"
         :selected-door-flow-direction="currentState.doorFlowDirections[currentState.selectedDoorId] ?? 'out'"
-        @update:online-access="handleMockOnlineAccessUpdate"
-        @update:area-total="handleMockAreaTotalUpdate"
-        @update:vehicles-on-site="handleMockVehiclesOnSiteUpdate"
-        @update:rail-status="handleMockRailStatusUpdate"
         @update:selected-door-id="handleMockSelectedDoorUpdate"
-        @toggle-selected-door="handleToggleSelectedDoor"
-        @toggle-selected-door-flow-direction="handleToggleSelectedDoorFlowDirection"
-        @refresh="loadDashboardOverview"
+        @trigger-animation="handleTriggerSelectedDoorAnimation"
+        @toggle-flow-direction="handleToggleSelectedDoorFlowDirection"
+        @open-all="handleTriggerAllDoorAnimations"
       />
     </div>
   </CockpitShell>
