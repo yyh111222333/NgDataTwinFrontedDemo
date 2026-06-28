@@ -39,8 +39,10 @@ import type {
   RailStatus,
 } from '@/types/dashboard'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
 const { backendOnline, healthError } = useBackendHealth()
+const router = useRouter()
 
 const SCENE_DOOR_IDS = extractSceneDoorIds(plantMapSvgRaw)
 const VALID_SCENE_DOOR_IDS = new Set(SCENE_DOOR_IDS)
@@ -305,7 +307,7 @@ const activeMenu = ref<string | null>(null)
 
 const handleBottomMenuClick = (item: (typeof bottomMenus)[number]) => {
   activeMenu.value = item.label
-  window.location.href = item.url
+  void router.push({ name: 'subsystem', params: { id: item.id } })
 }
 
 const handleMockOnlineAccessUpdate = (value: number) => {

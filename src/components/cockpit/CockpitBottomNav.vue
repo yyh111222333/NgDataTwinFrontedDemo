@@ -1,12 +1,14 @@
 <!-- 底部导航：玻璃质感科技风，四个子系统入口。 -->
 <script setup lang="ts">
+import type { BottomMenu } from '@/config/cockpit'
+
 defineProps<{
-  menus: readonly { label: string; url: string }[]
+  menus: readonly BottomMenu[]
   activeMenu: string | null
 }>()
 
 const emit = defineEmits<{
-  (e: 'menu-click', item: { label: string; url: string }): void
+  (e: 'menu-click', item: BottomMenu): void
 }>()
 </script>
 
