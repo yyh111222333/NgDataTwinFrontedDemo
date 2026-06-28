@@ -1,4 +1,4 @@
-<!-- 地图下方：实时展示后端推送的过门事件（进/出） -->
+<!-- F8 调试面板内：实时展示后端推送的过门事件（进/出） -->
 <script setup lang="ts">
 import { groupSceneDoorLabel } from '@/components/cockpit/sceneMount/sceneDoorIds'
 import type { GateAccessEvent } from '@/types/gate-access'
@@ -8,7 +8,7 @@ const props = defineProps<{
   events: GateAccessEvent[]
 }>()
 
-const visibleEvents = computed(() => props.events.slice(0, 6))
+const visibleEvents = computed(() => props.events.slice(0, 8))
 
 const formatTime = (iso: string) => {
   const date = new Date(iso)
@@ -21,9 +21,10 @@ const directionLabel = (direction: GateAccessEvent['direction']) =>
 </script>
 
 <template>
-  <aside v-if="visibleEvents.length" class="gate-access-feed" aria-label="门禁过门事件">
+  <section class="gate-access-feed" aria-label="门禁过门事件">
     <div class="gate-access-feed__title">实时过门</div>
-    <ul class="gate-access-feed__list">
+    <p v-if="visibleEvents.length === 0" class="gate-access-feed__empty">暂无过门事件（Mock 约 3s 轮询）</p>
+    <ul v-else class="gate-access-feed__list">
       <li
         v-for="event in visibleEvents"
         :key="event.eventId"
@@ -36,24 +37,14 @@ const directionLabel = (direction: GateAccessEvent['direction']) =>
         <span class="gate-access-feed__time">{{ formatTime(event.occurredAt) }}</span>
       </li>
     </ul>
-  </aside>
+  </section>
 </template>
 
 <style scoped>
 .gate-access-feed {
-  position: absolute;
-  left: 50%;
-  bottom: 72px;
-  transform: translateX(-50%);
-  z-index: 5;
-  width: min(520px, calc(100% - 860px));
-  min-width: 280px;
-  padding: 10px 12px;
-  border: 1px solid rgba(48, 220, 255, 0.35);
-  border-radius: 8px;
-  background: rgba(2, 10, 18, 0.88);
-  box-shadow: 0 0 16px rgba(48, 220, 255, 0.15);
-  pointer-events: none;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(48, 220, 255, 0.2);
 }
 
 .gate-access-feed__title {
@@ -63,6 +54,12 @@ const directionLabel = (direction: GateAccessEvent['direction']) =>
   color: #9fefff;
 }
 
+.gate-access-feed__empty {
+  margin: 0;
+  font-size: 11px;
+  color: rgba(160, 210, 230, 0.65);
+}
+
 .gate-access-feed__list {
   margin: 0;
   padding: 0;
@@ -70,12 +67,14 @@ const directionLabel = (direction: GateAccessEvent['direction']) =>
   display: flex;
   flex-direction: column;
   gap: 4px;
+  max-height: 160px;
+  overflow-y: auto;
 }
 
 .gate-access-feed__item {
   display: grid;
   grid-template-columns: 1fr auto auto auto;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   font-size: 11px;
   color: rgba(220, 245, 255, 0.92);

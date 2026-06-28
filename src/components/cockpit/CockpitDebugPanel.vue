@@ -1,6 +1,8 @@
 <!-- 门禁动画测试面板（F8）：道闸 + 人脸门禁（全高闸） -->
 <script setup lang="ts">
+import CockpitGateAccessFeed from '@/components/cockpit/CockpitGateAccessFeed.vue'
 import { groupSceneDoorLabel } from '@/components/cockpit/sceneMount/sceneDoorIds'
+import type { GateAccessEvent } from '@/types/gate-access'
 import type { DoorFlowDirection } from '@/types/door'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
@@ -11,6 +13,7 @@ const props = defineProps<{
   selectedDoorOpen: boolean
   selectedDoorFlowDirection: DoorFlowDirection
   animationReadyCount: number
+  gateAccessEvents: GateAccessEvent[]
 }>()
 
 const emit = defineEmits<{
@@ -178,6 +181,8 @@ onBeforeUnmount(() => {
         全部触发
       </button>
     </div>
+
+    <CockpitGateAccessFeed :events="gateAccessEvents" />
   </aside>
 </template>
 

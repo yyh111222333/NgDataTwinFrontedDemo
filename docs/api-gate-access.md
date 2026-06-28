@@ -176,7 +176,7 @@ GET /api/gate-access/events?cursor=evt_000002&limit=20
 | Mock | `src/mocks/gate-access-events.ts` |
 | 轮询 | `src/composables/useGateAccessEvents.ts` |
 | 状态应用 | `src/utils/apply-gate-access-event.ts` |
-| 展示 | `src/components/cockpit/CockpitGateAccessFeed.vue` |
+| 展示 | F8 调试面板 → `CockpitDebugPanel` 内 `CockpitGateAccessFeed` |
 
 接入真实 API：
 

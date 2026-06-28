@@ -9,7 +9,6 @@ import CockpitDrivingMonitorOverview from '@/components/cockpit/CockpitDrivingMo
 import CockpitSmartMonitorOverview from '@/components/cockpit/CockpitSmartMonitorOverview.vue'
 import CockpitVehicleOverview from '@/components/cockpit/CockpitVehicleOverview.vue'
 import CockpitPersonnelOverview from '@/components/cockpit/CockpitPersonnelOverview.vue'
-import CockpitGateAccessFeed from '@/components/cockpit/CockpitGateAccessFeed.vue'
 import CockpitSceneMount from '@/components/cockpit/CockpitSceneMount.vue'
 import CockpitSidePanels from '@/components/cockpit/CockpitSidePanels.vue'
 import { getDashboardOverview, getDeviceStatusOptions } from '@/api/dashboard'
@@ -430,7 +429,6 @@ useGateAccessEvents({
         :door-states="currentState.doorStates"
         :door-flow-directions="currentState.doorFlowDirections"
       />
-      <CockpitGateAccessFeed :events="recentGateAccessEvents" />
       <CockpitHeader
         :date-text="dateText"
         :time-text="timeText"
@@ -489,6 +487,7 @@ useGateAccessEvents({
         :selected-door-id="currentState.selectedDoorId"
         :selected-door-open="currentState.doorStates[currentState.selectedDoorId] ?? false"
         :selected-door-flow-direction="currentState.doorFlowDirections[currentState.selectedDoorId] ?? 'out'"
+        :gate-access-events="recentGateAccessEvents"
         @update:selected-door-id="handleMockSelectedDoorUpdate"
         @trigger-animation="handleTriggerSelectedDoorAnimation"
         @toggle-flow-direction="handleToggleSelectedDoorFlowDirection"
