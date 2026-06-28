@@ -102,8 +102,10 @@ export const resolveRelaySceneDoorId = (
 
 export const resolveRelayDoorActive = (device: RelayDoorDevice): boolean | null => {
   const inputActive = truthyBoolean(device.input_active)
-  if (inputActive !== null) return inputActive
-  return truthyBoolean(device.outputs?.['2'])
+  const outputActive = truthyBoolean(device.outputs?.['2'])
+  if (inputActive === true || outputActive === true) return true
+  if (inputActive !== null || outputActive !== null) return false
+  return null
 }
 
 const relayDirection = (active: boolean): DoorFlowDirection => (active ? 'in' : 'out')
