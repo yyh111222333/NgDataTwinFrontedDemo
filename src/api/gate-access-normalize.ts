@@ -24,6 +24,7 @@ export const normalizeSceneDoorId = (raw: string, validIds: ReadonlySet<string>)
   )
   if (gateMatch) {
     const [, type, area, index] = gateMatch
+    if (!type || !area || !index) return null
     const padded = index.padStart(2, '0')
     const candidate = `${type}_${area}${padded}`
     if (validIds.has(candidate)) return candidate
@@ -36,6 +37,7 @@ export const normalizeSceneDoorId = (raw: string, validIds: ReadonlySet<string>)
   )
   if (looseMatch) {
     const [, type, area, index] = looseMatch
+    if (!type || !area || !index) return null
     const padded = index.padStart(2, '0')
     const candidate = `${type}_${area}${padded}`
     if (validIds.has(candidate)) return candidate
