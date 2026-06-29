@@ -32,3 +32,61 @@ export interface GateAccessEventsQuery {
   /** 可选：限制单批条数，默认 20 */
   limit?: number
 }
+
+/**
+ * 真实 API 返回体示例（GET /api/gate-access/events?cursor=evt_000003&limit=20）
+ *
+ * ```json
+ * {
+ *   "code": 0,
+ *   "success": true,
+ *   "message": "ok",
+ *   "data": {
+ *     "events": [
+ *       {
+ *         "eventId": "evt_000004",
+ *         "doorId": "person_A01",
+ *         "direction": "in",
+ *         "occurredAt": "2026-05-29T10:15:32.000Z",
+ *         "personId": "P1001",
+ *         "personName": "张三"
+ *       },
+ *       {
+ *         "eventId": "evt_000005",
+ *         "doorId": "tripod_S01",
+ *         "direction": "out",
+ *         "occurredAt": "2026-05-29T10:15:35.000Z"
+ *       }
+ *     ],
+ *     "cursor": "evt_000005"
+ *   }
+ * }
+ * ```
+ *
+ * direction 也支持别名：in/enter/entry/进，out/exit/leave/出。
+ * doorId 支持场景 ID（person_A01）或别名（gate_person_A_01）。
+ */
+export const GATE_ACCESS_EVENTS_API_EXAMPLE = {
+  code: 0,
+  success: true,
+  message: 'ok',
+  data: {
+    events: [
+      {
+        eventId: 'evt_000004',
+        doorId: 'person_A01',
+        direction: 'in' as const,
+        occurredAt: '2026-05-29T10:15:32.000Z',
+        personId: 'P1001',
+        personName: '张三',
+      },
+      {
+        eventId: 'evt_000005',
+        doorId: 'tripod_S01',
+        direction: 'out' as const,
+        occurredAt: '2026-05-29T10:15:35.000Z',
+      },
+    ],
+    cursor: 'evt_000005',
+  },
+} as const satisfies GateAccessEventsApiResponse

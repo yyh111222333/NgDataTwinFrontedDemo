@@ -67,22 +67,21 @@ export const animatePersonStep = (
   pivot: Point,
   leaf: Line,
   leafEl?: SVGGraphicsElement | null,
-  open = true,
 ) => {
   stopPersonAnimation(runtime)
   const start = performance.now()
-  const fromAngle = runtime.angleDeg
-  const toAngle = open ? resolvePersonSwingAmplitude(leaf, pivot, flowDirection) : 0
+  const amplitude = resolvePersonSwingAmplitude(leaf, pivot, flowDirection)
 
   const step = (now: number) => {
     const raw = Math.min(1, (now - start) / durationMs)
-    runtime.angleDeg = fromAngle + (toAngle - fromAngle) * raw
+    const normalized = raw <= 0.5 ? raw / 0.5 : (1 - raw) / 0.5
+    runtime.angleDeg = amplitude * normalized
     applyPersonLeafTransform(runtime, pivot, leafEl)
     if (raw < 1) {
       runtime.rafId = requestAnimationFrame(step)
       return
     }
-    runtime.angleDeg = toAngle
+    runtime.angleDeg = 0
     applyPersonLeafTransform(runtime, pivot, leafEl)
     runtime.rafId = null
   }

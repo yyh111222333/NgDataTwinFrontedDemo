@@ -1,7 +1,6 @@
 /** 从厂区 SVG 提取可动画道闸/门禁 id（vehicleBarrier_* / trainBarrier_* /  legacy gate_*） */
 export const extractSceneDoorIds = (svgRaw: string): string[] => {
-  const currentIds = new Set<string>()
-  const legacyIds = new Set<string>()
+  const out = new Set<string>()
   const idRegex = /\sid="([^"]+)"/g
   let match: RegExpExecArray | null = null
 
@@ -14,7 +13,7 @@ export const extractSceneDoorIds = (svgRaw: string): string[] => {
       /^tripod_[\w\d]+$/.test(id) ||
       /^person_[\w\d]+$/.test(id)
     ) {
-      currentIds.add(id)
+      out.add(id)
       continue
     }
 
@@ -26,11 +25,10 @@ export const extractSceneDoorIds = (svgRaw: string): string[] => {
       .replace(/_static(?:-\d+)?$/i, '')
 
     if (normalized.startsWith('door_') || normalized.startsWith('gate_')) {
-      legacyIds.add(normalized)
+      out.add(normalized)
     }
   }
 
-  const out = currentIds.size > 0 ? currentIds : legacyIds
   return Array.from(out).sort((a, b) => a.localeCompare(b, 'zh-CN'))
 }
 

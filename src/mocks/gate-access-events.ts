@@ -1,58 +1,86 @@
+import type { DoorFlowDirection } from '@/types/door'
 import type { GateAccessEvent, GateAccessEventsData } from '@/types/gate-access'
 
-const MOCK_PERSON_NAMES = ['张三', '李四', '王五', '赵六', '访客A', '访客B'] as const
+const MOCK_PERSON_NAMES = ['张三', '李四', '王五', '赵六', '陈七'] as const
 
-let mockSeq = 0
-const mockEventLog: GateAccessEvent[] = []
+let eventSeq = 0
+const eventLog: GateAccessEvent[] = []
 
-const pickMockDoorId = (doorIds: string[]) => {
-  const preferred = doorIds.filter(
-    (id) =>
-      id.startsWith('person_') ||
-      id.startsWith('tripod_') ||
-      id.startsWith('fullheight_'),
-  )
-  const pool = preferred.length > 0 ? preferred : doorIds
-  return pool[mockSeq % pool.length] ?? doorIds[0] ?? 'person_A01'
+const formatEventId = (seq: number) => `evt_${String(seq).padStart(6, '0')}`
+
+const pickRandom = <T>(items: readonly T[]): T | undefined => {
+  if (items.length === 0) return undefined
+  return items[Math.floor(Math.random() * items.length)]
 }
 
-const sliceAfterCursor = (cursor?: string) => {
-  if (!cursor) return 0
-  const idx = mockEventLog.findIndex((evt) => evt.eventId === cursor)
-  return idx === -1 ? 0 : idx + 1
+/** 重置 Mock 事件队列（调试面板停止轮询时可调用） */
+export const resetGateAccessEventsMock = () => {
+  eventSeq = 0
+  eventLog.length = 0
 }
 
-/** 模拟后端增量推送：每次轮询有概率产生 1 条过门事件 */
+/** 构造单条过门事件（Mock / 手动模拟共用） */
+export const createGateAccessEvent = (
+  doorId: string,
+  direction: DoorFlowDirection,
+  overrides?: Partial<Pick<GateAccessEvent, 'personId' | 'personName' | 'occurredAt'>>,
+): GateAccessEvent => {
+  eventSeq += 1
+  const personName = overrides?.personName ?? pickRandom(MOCK_PERSON_NAMES)
+  return {
+    eventId: formatEventId(eventSeq),
+    doorId,
+    direction,
+    occurredAt: overrides?.occurredAt ?? new Date().toISOString(),
+    personId: overrides?.personId ?? `P${String(eventSeq).padStart(4, '0')}`,
+    personName,
+  }
+}
+
+/** 写入 Mock 队列并返回事件 */
+export const appendGateAccessEventMock = (
+  doorId: string,
+  direction: DoorFlowDirection,
+  overrides?: Partial<Pick<GateAccessEvent, 'personId' | 'personName' | 'occurredAt'>>,
+): GateAccessEvent => {
+  const event = createGateAccessEvent(doorId, direction, overrides)
+  eventLog.push(event)
+  return event
+}
+
+const compareEventId = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true })
+
+const sliceAfterCursor = (cursor: string | undefined, limit: number): GateAccessEvent[] => {
+  const filtered =
+    cursor == null || cursor === ''
+      ? [...eventLog]
+      : eventLog.filter((evt) => compareEventId(evt.eventId, cursor) > 0)
+  return filtered.slice(0, limit)
+}
+
+/**
+ * 模拟 GET /api/gate-access/events 的数据层。
+ * 每次轮询有概率自动生成一条随机过门事件。
+ */
 export const buildGateAccessEventsMock = (
   doorIds: string[],
-  cursor?: string,
+  cursor: string | undefined,
   limit = 20,
+  options?: { autoGenerate?: boolean },
 ): GateAccessEventsData => {
-  if (doorIds.length > 0 && Math.random() < 0.45) {
-    mockSeq += 1
-    const doorId = pickMockDoorId(doorIds)
-    mockEventLog.push({
-      eventId: `mock_evt_${String(mockSeq).padStart(6, '0')}`,
-      doorId,
-      direction: mockSeq % 2 === 0 ? 'in' : 'out',
-      occurredAt: new Date().toISOString(),
-      personId: `P${String(1000 + mockSeq)}`,
-      personName: MOCK_PERSON_NAMES[mockSeq % MOCK_PERSON_NAMES.length],
-    })
+  const autoGenerate = options?.autoGenerate !== false
+  if (autoGenerate && doorIds.length > 0 && Math.random() < 0.55) {
+    const doorId = pickRandom(doorIds)!
+    const direction: DoorFlowDirection = Math.random() < 0.5 ? 'in' : 'out'
+    appendGateAccessEventMock(doorId, direction)
   }
 
-  const start = sliceAfterCursor(cursor)
-  const events = mockEventLog.slice(start, start + limit)
-  const last = mockEventLog[mockEventLog.length - 1]
+  const events = sliceAfterCursor(cursor, limit)
+  const lastEvent = events.length > 0 ? events[events.length - 1] : undefined
+  const latestInLog = eventLog.length > 0 ? eventLog[eventLog.length - 1] : undefined
 
   return {
     events,
-    cursor: last?.eventId ?? cursor ?? '',
+    cursor: lastEvent?.eventId ?? cursor ?? latestInLog?.eventId ?? '',
   }
-}
-
-/** 测试或热更新时重置 Mock 事件队列 */
-export const resetGateAccessEventsMock = () => {
-  mockSeq = 0
-  mockEventLog.length = 0
 }

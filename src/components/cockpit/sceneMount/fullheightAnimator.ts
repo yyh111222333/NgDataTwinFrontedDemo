@@ -44,11 +44,12 @@ export const animateFullheightStep = (
   durationMs: number,
   pivot: Point,
   leafEl?: SVGGraphicsElement | null,
-  open = true,
 ) => {
   stopFullheightAnimation(runtime)
-  const fromAngle = runtime.angleDeg
-  const toAngle = open ? (flowDirection === 'in' ? 90 : -90) : 0
+  const fromAngle = 0
+  const toAngle = flowDirection === 'in' ? 90 : -90
+  runtime.angleDeg = fromAngle
+  applyFullheightLeafTransform(runtime, pivot, leafEl)
   const start = performance.now()
 
   const step = (now: number) => {

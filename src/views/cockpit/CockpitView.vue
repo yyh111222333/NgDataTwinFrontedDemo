@@ -12,17 +12,14 @@ import CockpitPersonnelOverview from '@/components/cockpit/CockpitPersonnelOverv
 import CockpitSceneMount from '@/components/cockpit/CockpitSceneMount.vue'
 import CockpitSidePanels from '@/components/cockpit/CockpitSidePanels.vue'
 import { getDashboardOverview, getDeviceStatusOptions } from '@/api/dashboard'
-import { useGateAccessEvents } from '@/composables/useGateAccessEvents'
-import { useRelayDoorStatus } from '@/composables/useRelayDoorStatus'
 import { useBackendHealth } from '@/composables/useBackendHealth'
-import { applyGateAccessEvents } from '@/utils/apply-gate-access-event'
-import type { GateAccessEvent } from '@/types/gate-access'
-import type { RelayDoorStatusSnapshot } from '@/types/relay-door-status'
+import { useGateAccessEvents } from '@/composables/useGateAccessEvents'
 import {
   DASHBOARD_DEVICE_REGIONS,
   DASHBOARD_DEVICE_TYPES,
 } from '@/config/device-status-catalog'
 import { buildDeviceStatusRecords } from '@/mocks/device-status-inventory'
+import { appendGateAccessEventMock, resetGateAccessEventsMock } from '@/mocks/gate-access-events'
 import {
   bottomMenus,
   middleStats,
@@ -31,7 +28,9 @@ import {
 import CockpitShell from '@/layouts/CockpitShell.vue'
 import plantMapSvgRaw from '@/assets/厂区地图_画板 1.svg?raw'
 import { extractSceneDoorIds } from '@/components/cockpit/sceneMount/sceneDoorIds'
+import { applyGateAccessEvents } from '@/utils/apply-gate-access-event'
 import type { DoorFlowDirection } from '@/types/door'
+import type { GateAccessEvent } from '@/types/gate-access'
 import type {
   DashboardDeviceRecord,
   DashboardOverviewData,
@@ -40,15 +39,12 @@ import type {
   RailStatus,
 } from '@/types/dashboard'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 
 const { backendOnline, healthError } = useBackendHealth()
-const router = useRouter()
 
 const SCENE_DOOR_IDS = extractSceneDoorIds(plantMapSvgRaw)
-const VALID_SCENE_DOOR_IDS = new Set(SCENE_DOOR_IDS)
+const VALID_DOOR_IDS = new Set(SCENE_DOOR_IDS)
 const DEFAULT_DOOR_ID = SCENE_DOOR_IDS[0] ?? ''
-const recentGateAccessEvents = ref<GateAccessEvent[]>([])
 const createDoorStateMap = (value: boolean) =>
   Object.fromEntries(SCENE_DOOR_IDS.map((id) => [id, value])) as Record<string, boolean>
 const createDoorFlowDirectionMap = (value: DoorFlowDirection) =>
@@ -61,12 +57,16 @@ const dateText = ref('')
 const timeText = ref('')
 const weekText = ref('')
 const showDebugPanel = ref(false)
+const gateAccessPolling = ref(false)
+const gateAccessUseMock = ref(true)
+const gateAccessCursor = ref<string | undefined>(undefined)
+const gateAccessError = ref<string | null>(null)
+const recentGateEvents = ref<GateAccessEvent[]>([])
 const sceneMountRef = ref<InstanceType<typeof CockpitSceneMount> | null>(null)
 const dataSource = ref<'mock' | 'api'>('mock')
 const apiLoading = ref(false)
 const apiError = ref<string | null>(null)
 const mockRefreshTick = ref(0)
-const relayDoorStatusOnline = ref(false)
 
 type DashboardViewState = {
   onlineAccess: number
@@ -309,7 +309,7 @@ const activeMenu = ref<string | null>(null)
 
 const handleBottomMenuClick = (item: (typeof bottomMenus)[number]) => {
   activeMenu.value = item.label
-  void router.push({ name: 'subsystem', params: { id: item.id } })
+  window.location.href = item.url
 }
 
 const handleMockOnlineAccessUpdate = (value: number) => {
@@ -386,76 +386,76 @@ const handleTriggerAllDoorAnimations = () => {
   projectMockToCurrent()
 }
 
-const prependGateAccessEvents = (events: GateAccessEvent[]) => {
+const MAX_RECENT_GATE_EVENTS = 30
+
+const appendRecentGateEvents = (events: GateAccessEvent[]) => {
   if (events.length === 0) return
-  recentGateAccessEvents.value = [...events, ...recentGateAccessEvents.value].slice(0, 20)
+  recentGateEvents.value = [...events, ...recentGateEvents.value].slice(0, MAX_RECENT_GATE_EVENTS)
 }
 
-const mergeRelayDoorSnapshot = (
-  state: DashboardViewState,
-  snapshot: RelayDoorStatusSnapshot,
-): DashboardViewState => ({
-  ...state,
-  doorStates: {
-    ...state.doorStates,
-    ...snapshot.doorStates,
-  },
-  doorFlowDirections: {
-    ...state.doorFlowDirections,
-    ...snapshot.doorFlowDirections,
-  },
-})
-
-const applyRelayDoorStatusToViewState = (snapshot: RelayDoorStatusSnapshot) => {
-  relayDoorStatusOnline.value = snapshot.mappedCount > 0
-  prependGateAccessEvents(snapshot.events)
-  currentState.value = mergeRelayDoorSnapshot(currentState.value, snapshot)
-
-  if (dataSource.value === 'mock') {
-    mockState.value = mergeRelayDoorSnapshot(mockState.value, snapshot)
-  }
-}
-
-const applyGateEventsToViewState = (events: GateAccessEvent[]) => {
+const applyIncomingGateEvents = (events: GateAccessEvent[]) => {
   if (events.length === 0) return
-  prependGateAccessEvents(events)
-
-  if (dataSource.value === 'mock') {
-    mockState.value = {
-      ...mockState.value,
-      ...applyGateAccessEvents(mockState.value, events, VALID_SCENE_DOOR_IDS),
-    }
-    projectMockToCurrent()
-    return
+  const slice = applyGateAccessEvents(
+    {
+      doorStates: mockState.value.doorStates,
+      doorFlowDirections: mockState.value.doorFlowDirections,
+    },
+    events,
+    VALID_DOOR_IDS,
+  )
+  const lastEvent = events[events.length - 1]
+  mockState.value = {
+    ...mockState.value,
+    selectedDoorId: lastEvent?.doorId ?? mockState.value.selectedDoorId,
+    doorStates: slice.doorStates,
+    doorFlowDirections: slice.doorFlowDirections,
   }
+  projectMockToCurrent()
+  appendRecentGateEvents(events)
+}
 
-  currentState.value = {
-    ...currentState.value,
-    ...applyGateAccessEvents(currentState.value, events, VALID_SCENE_DOOR_IDS),
+const handleSimulateGatePass = () => {
+  gateAccessError.value = null
+  const doorId = mockState.value.selectedDoorId
+  if (!doorId) return
+  const direction = mockState.value.doorFlowDirections[doorId] ?? 'out'
+  const event =
+    gateAccessUseMock.value
+      ? appendGateAccessEventMock(doorId, direction)
+      : ({
+          eventId: `manual_${Date.now()}`,
+          doorId,
+          direction,
+          occurredAt: new Date().toISOString(),
+        } satisfies GateAccessEvent)
+  applyIncomingGateEvents([event])
+  gateAccessCursor.value = event.eventId
+}
+
+const handleClearGateEvents = () => {
+  recentGateEvents.value = []
+  gateAccessCursor.value = undefined
+  gateAccessError.value = null
+  if (gateAccessUseMock.value) {
+    resetGateAccessEventsMock()
   }
 }
 
-const relayDoorStatusPollingEnabled = computed(() => true)
-const gateAccessPollingEnabled = computed(() => !relayDoorStatusOnline.value || dataSource.value === 'api')
-
-useRelayDoorStatus({
-  enabled: relayDoorStatusPollingEnabled,
-  validDoorIds: VALID_SCENE_DOOR_IDS,
-  onUpdate: applyRelayDoorStatusToViewState,
-  onError: (error) => {
-    relayDoorStatusOnline.value = false
-    apiError.value = error instanceof Error ? error.message : String(error)
-  },
+watch(showDebugPanel, (visible) => {
+  if (!visible) {
+    gateAccessPolling.value = false
+  }
 })
 
 useGateAccessEvents({
-  enabled: gateAccessPollingEnabled,
-  useMock: computed(() => dataSource.value === 'mock'),
+  enabled: computed(() => showDebugPanel.value && gateAccessPolling.value),
+  useMock: gateAccessUseMock,
   animatableDoorIds: SCENE_DOOR_IDS,
-  validDoorIds: VALID_SCENE_DOOR_IDS,
-  onEvents: applyGateEventsToViewState,
+  validDoorIds: VALID_DOOR_IDS,
+  cursor: gateAccessCursor,
+  onEvents: applyIncomingGateEvents,
   onError: (error) => {
-    apiError.value = error instanceof Error ? error.message : String(error)
+    gateAccessError.value = error instanceof Error ? error.message : String(error)
   },
 })
 </script>
@@ -526,11 +526,19 @@ useGateAccessEvents({
         :selected-door-id="currentState.selectedDoorId"
         :selected-door-open="currentState.doorStates[currentState.selectedDoorId] ?? false"
         :selected-door-flow-direction="currentState.doorFlowDirections[currentState.selectedDoorId] ?? 'out'"
-        :gate-access-events="recentGateAccessEvents"
+        :gate-access-polling="gateAccessPolling"
+        :gate-access-use-mock="gateAccessUseMock"
+        :gate-access-cursor="gateAccessCursor ?? ''"
+        :gate-access-error="gateAccessError"
+        :recent-gate-events="recentGateEvents"
         @update:selected-door-id="handleMockSelectedDoorUpdate"
         @trigger-animation="handleTriggerSelectedDoorAnimation"
         @toggle-flow-direction="handleToggleSelectedDoorFlowDirection"
         @open-all="handleTriggerAllDoorAnimations"
+        @update:gate-access-polling="gateAccessPolling = $event"
+        @update:gate-access-use-mock="gateAccessUseMock = $event"
+        @simulate-gate-pass="handleSimulateGatePass"
+        @clear-gate-events="handleClearGateEvents"
       />
     </div>
   </CockpitShell>

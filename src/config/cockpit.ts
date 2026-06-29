@@ -1,6 +1,5 @@
 // 这个文件集中放静态配置：页面入口只负责 import，不把大段配置写在视图里，后续接后端时，可逐步把这些静态值替换成接口数据
 export type BottomMenu = {
-  id: string
   label: string
   url: string
 }
@@ -28,10 +27,10 @@ export type PanelConfig = {
 
 // 底部 4 个子系统入口
 export const bottomMenus: BottomMenu[] = [
-  { id: 'personnel', label: '人员管控子系统', url: '/s/personnel/' },
-  { id: 'vehicle', label: '车辆管控子系统', url: '/s/vehicle/' },
-  { id: 'crane', label: '行车管控子系统', url: '/s/crane/' },
-  { id: 'monitor', label: '智慧监控子系统', url: 'http://10.13.0.8:9001/dashboard' },
+  { label: '人员管控子系统', url: 'http://10.13.0.8:18050/s/personnel/' },
+  { label: '车辆管控子系统', url: 'http://10.13.0.8:18050/s/vehicle/' },
+  { label: '行车管控子系统', url: 'http://10.13.0.8:18050/s/crane/' },
+  { label: '智慧监控子系统', url: 'http://10.13.0.8:18050/s/monitor/' },
 ]
 
 export type PanelTabItem = {
@@ -84,3 +83,4 @@ export const panels: PanelConfig[] = [
   { id: 'right-list', title: '行车监测概况', side: 'right', flex: 1.08 },
   { id: 'right-risk', title: '智慧监控概况', side: 'right', flex: 1.08 },
 ]
+

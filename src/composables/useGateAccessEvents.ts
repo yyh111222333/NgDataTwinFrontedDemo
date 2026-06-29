@@ -1,26 +1,25 @@
 import { getGateAccessEvents } from '@/api/gate-access'
-import type { GateAccessEvent } from '@/types/gate-access'
-import { onBeforeUnmount, onMounted, type Ref } from 'vue'
+import type { GateAccessEvent, GateAccessEventsData } from '@/types/gate-access'
+import { onBeforeUnmount, type Ref, watch } from 'vue'
 
 export type UseGateAccessEventsOptions = {
-  /** 是否启用轮询 */
   enabled: Ref<boolean>
-  /** Mock / API 数据源 */
   useMock: Ref<boolean>
-  /** 可动画门 ID，Mock 随机选门用 */
-  animatableDoorIds: string[]
+  animatableDoorIds: readonly string[]
   validDoorIds: ReadonlySet<string>
-  /** 收到新事件时回调 */
-  onEvents: (events: GateAccessEvent[]) => void
-  /** 轮询间隔，默认 3s */
   intervalMs?: number
+  cursor: Ref<string | undefined>
+  onEvents: (events: GateAccessEvent[]) => void
+  onPoll?: (data: GateAccessEventsData) => void
   onError?: (error: unknown) => void
 }
 
-/** 轮询 /api/gate-access/events，增量消费 cursor */
+/**
+ * 增量轮询过门事件（Mock / 真实 API 同一入口）。
+ * 首次 enabled 时不带 cursor；之后使用上次响应 cursor。
+ */
 export const useGateAccessEvents = (options: UseGateAccessEventsOptions) => {
-  const intervalMs = options.intervalMs ?? 3_000
-  let cursor: string | undefined
+  const intervalMs = options.intervalMs ?? 2_500
   let timer: number | null = null
   let polling = false
 
@@ -29,15 +28,19 @@ export const useGateAccessEvents = (options: UseGateAccessEventsOptions) => {
     polling = true
     try {
       const data = await getGateAccessEvents({
-        cursor,
+        cursor: options.cursor.value,
+        limit: 20,
         useMock: options.useMock.value,
-        animatableDoorIds: options.animatableDoorIds,
+        animatableDoorIds: [...options.animatableDoorIds],
         validDoorIds: options.validDoorIds,
       })
 
       if (data.cursor) {
-        cursor = data.cursor
+        options.cursor.value = data.cursor
       }
+
+      options.onPoll?.(data)
+
       if (data.events.length > 0) {
         options.onEvents(data.events)
       }
@@ -63,8 +66,19 @@ export const useGateAccessEvents = (options: UseGateAccessEventsOptions) => {
     }
   }
 
-  onMounted(start)
+  watch(
+    options.enabled,
+    (active) => {
+      if (active) {
+        start()
+      } else {
+        stop()
+      }
+    },
+    { immediate: true },
+  )
+
   onBeforeUnmount(stop)
 
-  return { pollOnce, stop, start }
+  return { pollOnce, start, stop }
 }
