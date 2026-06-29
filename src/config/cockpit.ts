@@ -1,6 +1,6 @@
 // 这个文件集中放静态配置：页面入口只负责 import，不把大段配置写在视图里，后续接后端时，可逐步把这些静态值替换成接口数据
 export type BottomMenu = {
-  id: string
+  id: 'personnel' | 'vehicle' | 'crane' | 'monitor'
   label: string
   url: string
 }
@@ -31,7 +31,7 @@ export const bottomMenus: BottomMenu[] = [
   { id: 'personnel', label: '人员管控子系统', url: 'http://10.13.0.8:18050/s/personnel/' },
   { id: 'vehicle', label: '车辆管控子系统', url: 'http://10.13.0.8:18050/s/vehicle/' },
   { id: 'crane', label: '行车管控子系统', url: 'http://10.13.0.8:18050/s/crane/' },
-  { id: 'monitor', label: '智慧监控子系统', url: 'http://10.13.0.8:18050/s/monitor/' },
+  { id: 'monitor', label: '智慧监控子系统', url: 'http://10.13.0.8:9001/dashboard' },
 ]
 
 export type PanelTabItem = {

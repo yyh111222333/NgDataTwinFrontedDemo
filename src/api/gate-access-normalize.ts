@@ -23,26 +23,32 @@ export const normalizeSceneDoorId = (raw: string, validIds: ReadonlySet<string>)
     trimmed,
   )
   if (gateMatch) {
-    const [, type, area, index] = gateMatch
-    if (!type || !area || !index) return null
-    const padded = index.padStart(2, '0')
-    const candidate = `${type}_${area}${padded}`
-    if (validIds.has(candidate)) return candidate
-    const compact = `${type}_${area}${index}`
-    if (validIds.has(compact)) return compact
+    const type = gateMatch[1]
+    const area = gateMatch[2]
+    const index = gateMatch[3]
+    if (type && area && index) {
+      const padded = index.padStart(2, '0')
+      const candidate = `${type}_${area}${padded}`
+      if (validIds.has(candidate)) return candidate
+      const compact = `${type}_${area}${index}`
+      if (validIds.has(compact)) return compact
+    }
   }
 
   const looseMatch = /^(person|tripod|fullheight|vehicleBarrier|trainBarrier)_([\w\d]+)_([\w\d]+)$/i.exec(
     trimmed,
   )
   if (looseMatch) {
-    const [, type, area, index] = looseMatch
-    if (!type || !area || !index) return null
-    const padded = index.padStart(2, '0')
-    const candidate = `${type}_${area}${padded}`
-    if (validIds.has(candidate)) return candidate
-    const compact = `${type}_${area}${index}`
-    if (validIds.has(compact)) return compact
+    const type = looseMatch[1]
+    const area = looseMatch[2]
+    const index = looseMatch[3]
+    if (type && area && index) {
+      const padded = index.padStart(2, '0')
+      const candidate = `${type}_${area}${padded}`
+      if (validIds.has(candidate)) return candidate
+      const compact = `${type}_${area}${index}`
+      if (validIds.has(compact)) return compact
+    }
   }
 
   return null
