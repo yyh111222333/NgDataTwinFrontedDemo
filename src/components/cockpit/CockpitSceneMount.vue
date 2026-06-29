@@ -193,9 +193,13 @@ const bindAnimatedGates = () => {
     if (isTripodGate(gateId) && bindOneTripod(gateId, group)) bound += 1
   })
   boundGateCount.value = bound
+  Object.entries(props.doorStates).forEach(([gateId, open]) => {
+    if (!open) return
+    triggerDoorAnimation(gateId, true)
+  })
 }
 
-const triggerBarrierAnimation = (doorId: string) => {
+const triggerBarrierAnimation = (doorId: string, open: boolean) => {
   const root = mountRef.value
   const svg = root?.querySelector('svg')
   const group = svg?.querySelector(`#${CSS.escape(doorId)}`)
@@ -212,10 +216,10 @@ const triggerBarrierAnimation = (doorId: string) => {
   }
   if (!runtime.ready || !leafEl) return
   const flowDirection = props.doorFlowDirections[doorId] ?? 'out'
-  animateBarrierStep(runtime, flowDirection, DOOR_DURATION_MS, leafEl)
+  animateBarrierStep(runtime, flowDirection, DOOR_DURATION_MS, leafEl, open)
 }
 
-const triggerFullheightAnimation = (doorId: string) => {
+const triggerFullheightAnimation = (doorId: string, open: boolean) => {
   const root = mountRef.value
   const svg = root?.querySelector('svg')
   const group = svg?.querySelector(`#${CSS.escape(doorId)}`)
@@ -229,10 +233,10 @@ const triggerFullheightAnimation = (doorId: string) => {
   if (!leafEl) return
   const runtime = ensureFullheightRuntime(doorId)
   const flowDirection = props.doorFlowDirections[doorId] ?? 'out'
-  animateFullheightStep(runtime, flowDirection, DOOR_DURATION_MS, geometry.pivot, leafEl)
+  animateFullheightStep(runtime, flowDirection, DOOR_DURATION_MS, geometry.pivot, leafEl, open)
 }
 
-const triggerPersonAnimation = (doorId: string) => {
+const triggerPersonAnimation = (doorId: string, open: boolean) => {
   const root = mountRef.value
   const svg = root?.querySelector('svg')
   const group = svg?.querySelector(`#${CSS.escape(doorId)}`)
@@ -246,7 +250,7 @@ const triggerPersonAnimation = (doorId: string) => {
   if (!leafEl) return
   const runtime = ensurePersonRuntime(doorId)
   const flowDirection = props.doorFlowDirections[doorId] ?? 'out'
-  animatePersonStep(runtime, flowDirection, DOOR_DURATION_MS, geometry.pivot, geometry.leaf, leafEl)
+  animatePersonStep(runtime, flowDirection, DOOR_DURATION_MS, geometry.pivot, geometry.leaf, leafEl, open)
 }
 
 const triggerTripodAnimation = (doorId: string) => {
@@ -267,17 +271,17 @@ const triggerTripodAnimation = (doorId: string) => {
   animateTripodStep(runtime, geometry, flowDirection, DOOR_DURATION_MS, tripodRotorElements[doorId])
 }
 
-const triggerDoorAnimation = (doorId: string) => {
+const triggerDoorAnimation = (doorId: string, open: boolean) => {
   if (isBarrierGate(doorId)) {
-    triggerBarrierAnimation(doorId)
+    triggerBarrierAnimation(doorId, open)
     return
   }
   if (isFullheightGate(doorId)) {
-    triggerFullheightAnimation(doorId)
+    triggerFullheightAnimation(doorId, open)
     return
   }
   if (isPersonGate(doorId)) {
-    triggerPersonAnimation(doorId)
+    triggerPersonAnimation(doorId, open)
     return
   }
   if (isTripodGate(doorId)) {
@@ -294,7 +298,7 @@ watch(
       if (!isBarrierGate(doorId) && !isFullheightGate(doorId) && !isPersonGate(doorId) && !isTripodGate(doorId)) {
         return
       }
-      triggerDoorAnimation(doorId)
+      triggerDoorAnimation(doorId, next[doorId] === true)
     })
   },
   { deep: true },

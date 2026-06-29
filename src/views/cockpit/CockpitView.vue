@@ -14,6 +14,7 @@ import CockpitSidePanels from '@/components/cockpit/CockpitSidePanels.vue'
 import { getDashboardOverview, getDeviceStatusOptions } from '@/api/dashboard'
 import { useBackendHealth } from '@/composables/useBackendHealth'
 import { useGateAccessEvents } from '@/composables/useGateAccessEvents'
+import { useRelayDoorStatus } from '@/composables/useRelayDoorStatus'
 import {
   DASHBOARD_DEVICE_REGIONS,
   DASHBOARD_DEVICE_TYPES,
@@ -31,6 +32,7 @@ import { extractSceneDoorIds } from '@/components/cockpit/sceneMount/sceneDoorId
 import { applyGateAccessEvents } from '@/utils/apply-gate-access-event'
 import type { DoorFlowDirection } from '@/types/door'
 import type { GateAccessEvent } from '@/types/gate-access'
+import type { RelayDoorStatusSnapshot } from '@/types/relay-door-status'
 import type {
   DashboardDeviceRecord,
   DashboardOverviewData,
@@ -393,6 +395,29 @@ const appendRecentGateEvents = (events: GateAccessEvent[]) => {
   recentGateEvents.value = [...events, ...recentGateEvents.value].slice(0, MAX_RECENT_GATE_EVENTS)
 }
 
+const mergeRelayDoorSnapshot = (
+  state: DashboardViewState,
+  snapshot: RelayDoorStatusSnapshot,
+): DashboardViewState => ({
+  ...state,
+  doorStates: {
+    ...state.doorStates,
+    ...snapshot.doorStates,
+  },
+  doorFlowDirections: {
+    ...state.doorFlowDirections,
+    ...snapshot.doorFlowDirections,
+  },
+})
+
+const applyRelayDoorStatus = (snapshot: RelayDoorStatusSnapshot) => {
+  currentState.value = mergeRelayDoorSnapshot(currentState.value, snapshot)
+  if (dataSource.value === 'mock') {
+    mockState.value = mergeRelayDoorSnapshot(mockState.value, snapshot)
+  }
+  appendRecentGateEvents(snapshot.events)
+}
+
 const applyIncomingGateEvents = (events: GateAccessEvent[]) => {
   if (events.length === 0) return
   const slice = applyGateAccessEvents(
@@ -445,6 +470,15 @@ watch(showDebugPanel, (visible) => {
   if (!visible) {
     gateAccessPolling.value = false
   }
+})
+
+useRelayDoorStatus({
+  enabled: computed(() => true),
+  validDoorIds: VALID_DOOR_IDS,
+  onUpdate: applyRelayDoorStatus,
+  onError: (error) => {
+    apiError.value = error instanceof Error ? error.message : String(error)
+  },
 })
 
 useGateAccessEvents({
