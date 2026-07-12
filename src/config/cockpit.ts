@@ -26,12 +26,20 @@ export type PanelConfig = {
   compact?: boolean
 }
 
+const currentHostUrl = (port: number, path: string) => {
+  if (typeof window === 'undefined') {
+    return path
+  }
+
+  return `${window.location.protocol}//${window.location.hostname}:${port}${path}`
+}
+
 // 底部 4 个子系统入口
 export const bottomMenus: BottomMenu[] = [
-  { id: 'personnel', label: '人员管控子系统', url: 'http://10.13.0.8:18050/s/personnel/' },
-  { id: 'vehicle', label: '车辆管控子系统', url: 'http://10.13.0.8:18050/s/vehicle/' },
-  { id: 'crane', label: '行车管控子系统', url: 'http://10.13.0.8:18050/s/crane/' },
-  { id: 'monitor', label: '智慧监控子系统', url: 'http://10.13.0.8:9001/dashboard' },
+  { id: 'personnel', label: '人员管控子系统', url: '/gateway/personnel/' },
+  { id: 'vehicle', label: '车辆管控子系统', url: '/gateway/vehicle/' },
+  { id: 'crane', label: '行车管控子系统', url: '/gateway/crane/' },
+  { id: 'monitor', label: '智慧监控子系统', url: currentHostUrl(9001, '/dashboard') },
 ]
 
 export type PanelTabItem = {
