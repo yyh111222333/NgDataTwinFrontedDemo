@@ -16,7 +16,7 @@ export type UseCockpitDoorSignalsOptions = {
  * 避免重放历史记录；后续按每个源门的事件版本变化触发场景动画。
  */
 export const useCockpitDoorSignals = (options: UseCockpitDoorSignalsOptions) => {
-  const intervalMs = options.intervalMs ?? 1_000
+  const intervalMs = options.intervalMs ?? 3_000
   const transientResetMs = options.transientResetMs ?? 2_500
   let previousVersions: Record<string, string> = {}
   let initialized = false

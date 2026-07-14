@@ -130,7 +130,7 @@ const getVehicleSignals = async (
 ): Promise<CockpitDoorSignal[]> => {
   const body = new URLSearchParams({
     pageIndex: '1',
-    pageSize: '50',
+    pageSize: '20',
     conditionParam: '{}',
   })
   const { data } = await apiClient.post<VehicleOrderResponse>(VEHICLE_ORDER_URL, body, {
