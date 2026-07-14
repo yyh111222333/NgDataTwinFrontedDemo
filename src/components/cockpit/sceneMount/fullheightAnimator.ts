@@ -47,6 +47,10 @@ export const animateFullheightStep = (
   open = true,
 ) => {
   stopFullheightAnimation(runtime)
+  if (open) {
+    runtime.angleDeg = 0
+    applyFullheightLeafTransform(runtime, pivot, leafEl)
+  }
   const fromAngle = runtime.angleDeg
   const toAngle = open ? (flowDirection === 'in' ? 90 : -90) : 0
   const start = performance.now()

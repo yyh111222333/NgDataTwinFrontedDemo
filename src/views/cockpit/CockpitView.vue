@@ -13,6 +13,7 @@ import CockpitSceneMount from '@/components/cockpit/CockpitSceneMount.vue'
 import CockpitSidePanels from '@/components/cockpit/CockpitSidePanels.vue'
 import { getDashboardOverview, getDeviceStatusOptions } from '@/api/dashboard'
 import { useBackendHealth } from '@/composables/useBackendHealth'
+import { useCockpitDoorSignals } from '@/composables/useCockpitDoorSignals'
 import { useGateAccessEvents } from '@/composables/useGateAccessEvents'
 import { useRelayDoorStatus } from '@/composables/useRelayDoorStatus'
 import {
@@ -31,6 +32,7 @@ import plantMapSvgRaw from '@/assets/厂区地图_画板 1.svg?raw'
 import { extractSceneDoorIds } from '@/components/cockpit/sceneMount/sceneDoorIds'
 import { applyGateAccessEvents } from '@/utils/apply-gate-access-event'
 import type { DoorFlowDirection } from '@/types/door'
+import type { CockpitDoorSignal } from '@/types/cockpit-door-signal'
 import type { GateAccessEvent } from '@/types/gate-access'
 import type { RelayDoorStatusSnapshot } from '@/types/relay-door-status'
 import type {
@@ -66,6 +68,7 @@ const gateAccessUseMock = ref(true)
 const gateAccessCursor = ref<string | undefined>(undefined)
 const gateAccessError = ref<string | null>(null)
 const recentGateEvents = ref<GateAccessEvent[]>([])
+const doorSignalRevisions = ref<Record<string, number>>({})
 const sceneMountRef = ref<InstanceType<typeof CockpitSceneMount> | null>(null)
 const dataSource = ref<'mock' | 'api'>('mock')
 const apiLoading = ref(false)
@@ -420,6 +423,35 @@ const applyRelayDoorStatus = (snapshot: RelayDoorStatusSnapshot) => {
   appendRecentGateEvents(snapshot.events)
 }
 
+const applyCockpitDoorSignals = (signals: CockpitDoorSignal[]) => {
+  if (signals.length === 0) return
+
+  const doorStates = { ...currentState.value.doorStates }
+  const doorFlowDirections = { ...currentState.value.doorFlowDirections }
+  const revisions = { ...doorSignalRevisions.value }
+  const events: GateAccessEvent[] = []
+
+  signals.forEach((signal) => {
+    doorStates[signal.doorId] = signal.open
+    doorFlowDirections[signal.doorId] = signal.direction
+    revisions[signal.doorId] = (revisions[signal.doorId] ?? 0) + 1
+    events.push({
+      eventId: `cockpit_${signal.sourceDoorId}_${signal.version}`,
+      doorId: signal.doorId,
+      direction: signal.direction,
+      occurredAt: signal.occurredAt || new Date().toISOString(),
+    })
+  })
+
+  currentState.value = { ...currentState.value, doorStates, doorFlowDirections }
+  if (dataSource.value === 'mock') {
+    mockState.value = { ...mockState.value, doorStates, doorFlowDirections }
+  }
+  doorSignalRevisions.value = revisions
+  appendRecentGateEvents(events)
+  gateAccessError.value = null
+}
+
 const applyIncomingGateEvents = (events: GateAccessEvent[]) => {
   if (events.length === 0) return
   const slice = applyGateAccessEvents(
@@ -483,6 +515,15 @@ useRelayDoorStatus({
   },
 })
 
+useCockpitDoorSignals({
+  enabled: computed(() => true),
+  validDoorIds: VALID_DOOR_IDS,
+  onSignals: applyCockpitDoorSignals,
+  onError: (error) => {
+    gateAccessError.value = error instanceof Error ? error.message : String(error)
+  },
+})
+
 useGateAccessEvents({
   enabled: computed(() => showDebugPanel.value && gateAccessPolling.value),
   useMock: gateAccessUseMock,
@@ -503,6 +544,7 @@ useGateAccessEvents({
         ref="sceneMountRef"
         :door-states="currentState.doorStates"
         :door-flow-directions="currentState.doorFlowDirections"
+        :door-signal-revisions="doorSignalRevisions"
       />
       <CockpitHeader
         :date-text="dateText"

@@ -95,6 +95,10 @@ export const animateBarrierStep = (
 ) => {
   if (!runtime.ready) return
   stopBarrierAnimation(runtime)
+  if (open) {
+    runtime.scaleX = runtime.startScaleX
+    applyBarrierLeafTransform(runtime, leafEl)
+  }
   const start = performance.now()
   const from = runtime.scaleX
   const to = open ? runtime.endScaleX : runtime.startScaleX

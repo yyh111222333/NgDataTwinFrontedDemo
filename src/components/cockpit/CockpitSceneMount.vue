@@ -39,6 +39,7 @@ import type { DoorFlowDirection } from '@/types/door'
 const props = defineProps<{
   doorStates: Record<string, boolean>
   doorFlowDirections: Record<string, DoorFlowDirection>
+  doorSignalRevisions: Record<string, number>
 }>()
 
 const DOOR_DURATION_MS = 1500
@@ -290,15 +291,22 @@ const triggerDoorAnimation = (doorId: string, open: boolean) => {
 }
 
 watch(
-  () => props.doorStates,
-  (next, prev) => {
-    if (!prev) return
-    Object.keys(next).forEach((doorId) => {
-      if (next[doorId] === prev[doorId]) return
-      if (!isBarrierGate(doorId) && !isFullheightGate(doorId) && !isPersonGate(doorId) && !isTripodGate(doorId)) {
+  [() => props.doorStates, () => props.doorSignalRevisions],
+  ([nextStates, nextRevisions], [prevStates, prevRevisions]) => {
+    const changedDoorIds = new Set([...Object.keys(nextStates), ...Object.keys(nextRevisions)])
+    changedDoorIds.forEach((doorId) => {
+      const stateChanged = nextStates[doorId] !== prevStates[doorId]
+      const signalChanged = nextRevisions[doorId] !== prevRevisions[doorId]
+      if (!stateChanged && !signalChanged) return
+      if (
+        !isBarrierGate(doorId) &&
+        !isFullheightGate(doorId) &&
+        !isPersonGate(doorId) &&
+        !isTripodGate(doorId)
+      ) {
         return
       }
-      triggerDoorAnimation(doorId, next[doorId] === true)
+      triggerDoorAnimation(doorId, nextStates[doorId] === true)
     })
   },
   { deep: true },
