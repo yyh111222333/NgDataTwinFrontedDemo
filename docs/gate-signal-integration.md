@@ -19,17 +19,16 @@
 - 事件来源：智能识别、刷卡开门、按钮开门、远程开门等实时事件
 - 播放策略：按设备序列号去重，新事件触发后 2.5 秒自动复位
 
-人员平台没有维护 `X01` 至 `X04` 的现场点位名称，不能仅凭 IP 安全推断物理位置。
-确认对应关系后，在 `src/config/cockpit-door-signal-map.ts` 的
-`PERSONNEL_DEVICE_SCENE_DOOR_IDS` 中填写，例如：
+现场方向映射如下：
 
-```ts
-export const PERSONNEL_DEVICE_SCENE_DOOR_IDS = {
-  设备序列号: 'fullheight_X01',
-}
-```
+- `192.168.51.100` -> `fullheight_X02`
+- `192.168.52.100` -> `fullheight_X03`
+- `192.168.53.100` -> `fullheight_X04`
+- `192.168.53.118` -> `fullheight_X01`
 
-当前在线设备的序列号和 IP 已记录在同一配置文件的 `PERSONNEL_DEVICES` 中。
+其余 `192.168.52.105`、`192.168.52.106`、`192.168.53.112`、
+`192.168.53.113` 作为普通人脸机保留，不绑定全高闸动画。设备序列号和 IP
+记录在 `src/config/cockpit-door-signal-map.ts` 的 `PERSONNEL_DEVICES` 中。
 
 ## 容错
 
