@@ -8,7 +8,7 @@ import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/compon
 import * as echarts from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { use } from 'echarts/core'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import VChart from 'vue-echarts'
 
 use([BarChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer])
@@ -19,12 +19,13 @@ const loading = ref(false)
 const loadError = ref<string | null>(null)
 
 const loadStats = async () => {
+  if (loading.value) return
   loading.value = true
   loadError.value = null
   try {
     statsData.value = await getVehicleChannelStats(
       { granularity: granularity.value!, anchor: resolveAccessStatsAnchor(granularity.value!) },
-      { useMock: true },
+      { useMock: false },
     )
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : String(e)
@@ -40,6 +41,13 @@ watch(granularity, () => {
 
 onMounted(() => {
   void loadStats()
+  refreshTimer = window.setInterval(() => void loadStats(), 10_000)
+})
+
+let refreshTimer: number | null = null
+
+onBeforeUnmount(() => {
+  if (refreshTimer !== null) window.clearInterval(refreshTimer)
 })
 
 const granularityOptions = computed(
@@ -212,7 +220,11 @@ const chartOption = computed(() => {
       <p v-if="loadError" class="region-stats-chart__state is-error">{{ loadError }}</p>
       <p v-else-if="loading && !statsData" class="region-stats-chart__state">加载中…</p>
       <VChart v-else class="region-stats-chart__echart" :option="chartOption" autoresize />
-      <div v-if="loading && statsData" class="region-stats-chart__loading-mask" aria-hidden="true" />
+      <div
+        v-if="loading && statsData"
+        class="region-stats-chart__loading-mask"
+        aria-hidden="true"
+      />
     </div>
 
     <div v-if="statsData" class="region-stats-chart__summary">
@@ -324,8 +336,7 @@ const chartOption = computed(() => {
   border-radius: 4px;
   border: 1px solid rgba(48, 220, 255, 0.1);
   background:
-    linear-gradient(180deg, rgba(48, 200, 255, 0.03) 0%, transparent 40%),
-    rgba(2, 10, 20, 0.35);
+    linear-gradient(180deg, rgba(48, 200, 255, 0.03) 0%, transparent 40%), rgba(2, 10, 20, 0.35);
   overflow: hidden;
 }
 
@@ -333,7 +344,12 @@ const chartOption = computed(() => {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent 0%, rgba(48, 200, 255, 0.04) 50%, transparent 100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(48, 200, 255, 0.04) 50%,
+    transparent 100%
+  );
   pointer-events: none;
   opacity: 0.6;
 }

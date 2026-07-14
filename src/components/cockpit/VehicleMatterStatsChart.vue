@@ -9,8 +9,8 @@ const granularity = defineModel<VehicleAccessGranularity>('granularity', { defau
 
 const loadVehicleMatterStats = (
   query: { granularity: AccessStatsGranularity; anchor: string },
-  _options?: { useMock: boolean },
-) => getVehicleMatterStats(query, { useMock: true })
+  options?: { useMock: boolean },
+) => getVehicleMatterStats(query, options)
 </script>
 
 <template>
@@ -18,6 +18,8 @@ const loadVehicleMatterStats = (
     v-model:granularity="granularity"
     :matter-types="VEHICLE_MATTER_TYPES"
     :loader="loadVehicleMatterStats"
-    summary-label="总事项"
+    :use-mock="false"
+    :refresh-interval-ms="10000"
+    summary-label="通行车辆"
   />
 </template>

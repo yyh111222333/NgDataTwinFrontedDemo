@@ -29,6 +29,8 @@ const props = defineProps<{
     query: { granularity: AccessStatsGranularity; anchor: string },
     options: { useMock: boolean },
   ) => Promise<TimeStatsPayload>
+  useMock?: boolean
+  refreshIntervalMs?: number
 }>()
 
 const granularity = defineModel<AccessStatsGranularity>('granularity', { default: 'day' })
@@ -38,8 +40,9 @@ const exitLineColor = '#e8a84a'
 
 const { statsData, loading, loadError, granularityOptions } = useGranularityStatsChart(
   props.loader,
-  true,
+  props.useMock ?? true,
   granularity,
+  props.refreshIntervalMs ?? 0,
 )
 
 const chartOption = computed(() => {

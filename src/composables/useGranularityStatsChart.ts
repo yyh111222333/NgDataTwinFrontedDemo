@@ -1,6 +1,6 @@
 import { defaultAccessStatsAnchors, resolveAccessStatsAnchor } from '@/mocks/access-stats-shared'
 import type { AccessStatsGranularity } from '@/mocks/access-stats-shared'
-import { computed, onMounted, ref, watch, type Ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
 
 type GranularityQuery = {
   granularity: AccessStatsGranularity
@@ -13,6 +13,7 @@ export function useGranularityStatsChart<T extends { granularityOptions?: Granul
   loader: (query: GranularityQuery, options: { useMock: boolean }) => Promise<T>,
   useMock = true,
   sharedGranularity?: Ref<AccessStatsGranularity>,
+  refreshIntervalMs = 0,
 ) {
   const granularity = sharedGranularity ?? ref<AccessStatsGranularity>('day')
   const statsData = ref<T | null>(null)
@@ -20,6 +21,7 @@ export function useGranularityStatsChart<T extends { granularityOptions?: Granul
   const loadError = ref<string | null>(null)
 
   const loadStats = async () => {
+    if (loading.value) return
     loading.value = true
     loadError.value = null
     try {
@@ -44,6 +46,15 @@ export function useGranularityStatsChart<T extends { granularityOptions?: Granul
 
   onMounted(() => {
     void loadStats()
+    if (refreshIntervalMs > 0) {
+      refreshTimer = window.setInterval(() => void loadStats(), refreshIntervalMs)
+    }
+  })
+
+  let refreshTimer: number | null = null
+
+  onBeforeUnmount(() => {
+    if (refreshTimer !== null) window.clearInterval(refreshTimer)
   })
 
   const granularityOptions = computed(

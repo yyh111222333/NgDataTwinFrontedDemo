@@ -9,10 +9,15 @@ const granularity = defineModel<VehicleAccessGranularity>('granularity', { defau
 
 const loadVehicleTimeStats = (
   query: { granularity: AccessStatsGranularity; anchor: string },
-  _options?: { useMock: boolean },
-) => getVehicleTimeStats(query, { useMock: true })
+  options?: { useMock: boolean },
+) => getVehicleTimeStats(query, options)
 </script>
 
 <template>
-  <TimeDistributionChart v-model:granularity="granularity" :loader="loadVehicleTimeStats" />
+  <TimeDistributionChart
+    v-model:granularity="granularity"
+    :loader="loadVehicleTimeStats"
+    :use-mock="false"
+    :refresh-interval-ms="10000"
+  />
 </template>

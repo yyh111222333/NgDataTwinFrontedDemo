@@ -57,7 +57,7 @@ export const personnelOverviewTabs: PanelTabItem[] = [
 // 车辆进出概况子 Tab
 export const vehicleOverviewTabs: PanelTabItem[] = [
   { key: 'channel', label: '通道进出统计' },
-  { key: 'matter', label: '事项分布' },
+  { key: 'matter', label: '车辆类型分布' },
   { key: 'time', label: '进出时间分布' },
 ]
 

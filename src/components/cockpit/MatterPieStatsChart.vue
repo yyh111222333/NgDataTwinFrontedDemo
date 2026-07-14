@@ -25,6 +25,8 @@ const props = defineProps<{
     options: { useMock: boolean },
   ) => Promise<MatterStatsPayload>
   summaryLabel?: string
+  useMock?: boolean
+  refreshIntervalMs?: number
 }>()
 
 const granularity = defineModel<AccessStatsGranularity>('granularity', { default: 'day' })
@@ -33,8 +35,9 @@ const colorMap = Object.fromEntries(props.matterTypes.map((m) => [m.id, m.color]
 
 const { statsData, loading, loadError, granularityOptions } = useGranularityStatsChart(
   props.loader,
-  true,
+  props.useMock ?? true,
   granularity,
+  props.refreshIntervalMs ?? 0,
 )
 
 const chartOption = computed(() => {
@@ -122,7 +125,8 @@ const chartOption = computed(() => {
     </div>
     <div v-if="statsData" class="panel-chart__summary">
       <span class="panel-chart__metric">
-        <em>{{ summaryLabel ?? '总事项' }}</em>{{ statsData.summary.totalCount }}
+        <em>{{ summaryLabel ?? '总事项' }}</em
+        >{{ statsData.summary.totalCount }}
       </span>
     </div>
   </div>

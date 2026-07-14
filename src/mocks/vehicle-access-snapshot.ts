@@ -34,7 +34,7 @@ import {
 
 
 
-/** 各粒度固定占比（顺序：提货 / 送货 / 维修 / 临时访问 / 其他） */
+/** Mock 模式下各车牌类型的固定占比。 */
 
 const VEHICLE_MATTER_RATIOS: Record<VehicleAccessGranularity, readonly number[]> = {
 
@@ -204,5 +204,3 @@ if (import.meta.hot) {
   })
 
 }
-
-

@@ -12,21 +12,15 @@ import CockpitPersonnelOverview from '@/components/cockpit/CockpitPersonnelOverv
 import CockpitSceneMount from '@/components/cockpit/CockpitSceneMount.vue'
 import CockpitSidePanels from '@/components/cockpit/CockpitSidePanels.vue'
 import { getDashboardOverview, getDeviceStatusOptions } from '@/api/dashboard'
+import { getVehiclePlatformSummary } from '@/api/vehicle-access'
 import { useBackendHealth } from '@/composables/useBackendHealth'
 import { useCockpitDoorSignals } from '@/composables/useCockpitDoorSignals'
 import { useGateAccessEvents } from '@/composables/useGateAccessEvents'
 import { useRelayDoorStatus } from '@/composables/useRelayDoorStatus'
-import {
-  DASHBOARD_DEVICE_REGIONS,
-  DASHBOARD_DEVICE_TYPES,
-} from '@/config/device-status-catalog'
+import { DASHBOARD_DEVICE_REGIONS, DASHBOARD_DEVICE_TYPES } from '@/config/device-status-catalog'
 import { buildDeviceStatusRecords } from '@/mocks/device-status-inventory'
 import { appendGateAccessEventMock, resetGateAccessEventsMock } from '@/mocks/gate-access-events'
-import {
-  bottomMenus,
-  middleStats,
-  panels,
-} from '@/config/cockpit'
+import { bottomMenus, middleStats, panels } from '@/config/cockpit'
 import CockpitShell from '@/layouts/CockpitShell.vue'
 import plantMapSvgRaw from '@/assets/厂区地图_画板 1.svg?raw'
 import { extractSceneDoorIds } from '@/components/cockpit/sceneMount/sceneDoorIds'
@@ -74,6 +68,7 @@ const dataSource = ref<'mock' | 'api'>('mock')
 const apiLoading = ref(false)
 const apiError = ref<string | null>(null)
 const mockRefreshTick = ref(0)
+const realtimeVehiclesOnSite = ref<number | null>(null)
 
 type DashboardViewState = {
   onlineAccess: number
@@ -129,7 +124,10 @@ const mockState = ref<DashboardViewState>(createInitialState())
 const runtimeKpiStats = computed(() => [
   { value: String(currentState.value.onlineAccess), label: '在线门禁' },
   { value: String(currentState.value.areaTotal), label: '区域总人数' },
-  { value: String(currentState.value.vehiclesOnSite), label: '车辆在场' },
+  {
+    value: String(realtimeVehiclesOnSite.value ?? currentState.value.vehiclesOnSite),
+    label: '车辆在场',
+  },
   { value: currentState.value.railStatus, label: '火车道状态' },
   { value: String(currentState.value.alarmCount), label: '异常警告' },
 ])
@@ -175,8 +173,14 @@ const applyOptionsData = (data: DeviceStatusOptionsData) => {
 }
 
 const initMockOptions = () => {
-  regionOptions.value = [{ id: 'all', name: '全部' }, ...mockState.value.deviceRegions.map((name) => ({ id: name, name }))]
-  deviceOptions.value = [{ id: 'all', name: '全部' }, ...mockState.value.deviceTypes.map((name) => ({ id: name, name }))]
+  regionOptions.value = [
+    { id: 'all', name: '全部' },
+    ...mockState.value.deviceRegions.map((name) => ({ id: name, name })),
+  ]
+  deviceOptions.value = [
+    { id: 'all', name: '全部' },
+    ...mockState.value.deviceTypes.map((name) => ({ id: name, name })),
+  ]
   selectedRegionId.value = 'all'
   selectedDeviceType.value = 'all'
 }
@@ -268,6 +272,7 @@ watch(
 
 let clockTimer: number | null = null
 let debugKeyHandler: ((e: KeyboardEvent) => void) | null = null
+let vehicleSummaryTimer: number | null = null
 
 const weekMap = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'] as const
 
@@ -287,9 +292,20 @@ const updateClock = () => {
   weekText.value = weekMap[now.getDay()] ?? '星期日'
 }
 
+const loadVehicleSummary = async () => {
+  try {
+    const summary = await getVehiclePlatformSummary()
+    realtimeVehiclesOnSite.value = summary.vehiclesOnSite
+  } catch (error) {
+    apiError.value = error instanceof Error ? error.message : String(error)
+  }
+}
+
 onMounted(() => {
   updateClock()
   clockTimer = window.setInterval(updateClock, 1000)
+  void loadVehicleSummary()
+  vehicleSummaryTimer = window.setInterval(() => void loadVehicleSummary(), 10_000)
 
   debugKeyHandler = (e: KeyboardEvent) => {
     const byF8 = e.key === 'F8'
@@ -304,6 +320,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (clockTimer !== null) {
     window.clearInterval(clockTimer)
+  }
+  if (vehicleSummaryTimer !== null) {
+    window.clearInterval(vehicleSummaryTimer)
   }
   if (debugKeyHandler) {
     window.removeEventListener('keydown', debugKeyHandler)
@@ -376,8 +395,7 @@ const handleToggleSelectedDoorFlowDirection = () => {
 }
 
 const handleTriggerAllDoorAnimations = () => {
-  const batchDirection =
-    mockState.value.doorFlowDirections[mockState.value.selectedDoorId] ?? 'out'
+  const batchDirection = mockState.value.doorFlowDirections[mockState.value.selectedDoorId] ?? 'out'
   const nextFlowDirections = Object.fromEntries(
     SCENE_DOOR_IDS.map((id) => [id, batchDirection]),
   ) as Record<string, DoorFlowDirection>
@@ -524,15 +542,14 @@ const handleSimulateGatePass = () => {
   const doorId = mockState.value.selectedDoorId
   if (!doorId) return
   const direction = mockState.value.doorFlowDirections[doorId] ?? 'out'
-  const event =
-    gateAccessUseMock.value
-      ? appendGateAccessEventMock(doorId, direction)
-      : ({
-          eventId: `manual_${Date.now()}`,
-          doorId,
-          direction,
-          occurredAt: new Date().toISOString(),
-        } satisfies GateAccessEvent)
+  const event = gateAccessUseMock.value
+    ? appendGateAccessEventMock(doorId, direction)
+    : ({
+        eventId: `manual_${Date.now()}`,
+        doorId,
+        direction,
+        occurredAt: new Date().toISOString(),
+      } satisfies GateAccessEvent)
   applyIncomingGateEvents([event])
   gateAccessCursor.value = event.eventId
 }
@@ -639,7 +656,6 @@ useGateAccessEvents({
             @menu-click="handleBottomMenuClick"
           />
         </div>
-
       </div>
 
       <!-- 置于 main 外，避免 pointer-events:none 与顶栏 z-index 遮挡 -->
@@ -649,7 +665,9 @@ useGateAccessEvents({
         :animation-ready-count="sceneMountRef?.boundGateCount ?? 0"
         :selected-door-id="currentState.selectedDoorId"
         :selected-door-open="currentState.doorStates[currentState.selectedDoorId] ?? false"
-        :selected-door-flow-direction="currentState.doorFlowDirections[currentState.selectedDoorId] ?? 'out'"
+        :selected-door-flow-direction="
+          currentState.doorFlowDirections[currentState.selectedDoorId] ?? 'out'
+        "
         :gate-access-polling="gateAccessPolling"
         :gate-access-use-mock="gateAccessUseMock"
         :gate-access-cursor="gateAccessCursor ?? ''"
