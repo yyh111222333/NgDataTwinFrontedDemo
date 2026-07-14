@@ -1,22 +1,25 @@
-/**
- * 8084 驾驶舱接口仍使用旧版 SVG 元素 ID，这里统一映射到当前地图门级 ID。
- * 后续设备若直接返回当前 sceneDoorId，则无需在此增加配置。
- */
-export const COCKPIT_DOOR_SIGNAL_ID_MAP: Readonly<Record<string, string>> = {
-  // 全高闸：旧图按元素复制后缀编号，当前图按现场点位编号。
-  gate_fullheight_A_01: 'fullheight_X04',
-  'gate_fullheight_A_01-2': 'fullheight_X01',
-  'gate_fullheight_A_01-3': 'fullheight_X03',
-  'gate_fullheight_A_01-5': 'fullheight_X02',
-  'gate_fullheight_A_01-6': 'fullheight_X02',
-
-  // 汽车道闸与火车道闸。
-  gate_barrier_A_02: 'vehicleBarrier_9',
-  'gate_barrier_A_02-2': 'vehicleBarrier_07',
-  'gate_barrier_A_02-3': 'vehicleBarrier_8',
-  'gate_barrier_A_02-4': 'trainBarrier_02',
-  'gate_barrier_A_02-5': 'trainBarrier_01',
-  'gate_barrier_A_02-6': 'vehicleBarrier_10',
-  'gate_barrier_A_02-9': 'vehicleBarrier_11',
-  'gate_barrier_A_02-10': 'vehicleBarrier_12',
+/** 停车平台车道名称中的门号到当前场景道闸 ID。 */
+export const VEHICLE_GATE_SCENE_DOOR_IDS: Readonly<Record<string, string>> = {
+  '7': 'vehicleBarrier_07',
+  '8': 'vehicleBarrier_8',
+  '9': 'vehicleBarrier_9',
+  '10': 'vehicleBarrier_10',
+  '11': 'vehicleBarrier_11',
 }
+
+/**
+ * 人员平台设备序列号到全高闸场景 ID。
+ * 现场平台没有维护 X01-X04 点位名称，确认物理对应关系后在此补齐。
+ */
+export const PERSONNEL_DEVICE_SCENE_DOOR_IDS: Readonly<Record<string, string>> = {}
+
+/** 人员平台当前在线设备，保留 IP 便于现场确认全高闸点位。 */
+export const PERSONNEL_DEVICES = [
+  { deviceNo: '2603093201352', ip: '192.168.51.100' },
+  { deviceNo: '26030931529A1', ip: '192.168.52.100' },
+  { deviceNo: '260309316281B', ip: '192.168.52.105' },
+  { deviceNo: '2603093144285', ip: '192.168.52.106' },
+  { deviceNo: '26030931798E7', ip: '192.168.53.100' },
+  { deviceNo: '26030512276CE', ip: '192.168.53.113' },
+  { deviceNo: '2603051212818', ip: '192.168.53.118' },
+] as const

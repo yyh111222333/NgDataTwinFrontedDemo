@@ -26,14 +26,16 @@ The monitoring dashboard is opened on port `9001` rather than under `/gateway/mo
 
 The frontend nginx config proxies these paths:
 
-- `/api` -> `http://192.168.10.11:8084`
-- `/health` -> `http://192.168.10.11:8084`
+- `/api` -> legacy endpoint retired (HTTP 404; cockpit panels use mock data)
+- `/health` -> `http://192.168.10.11:18050/_gateway/health`
 - `/relay-api/` -> `http://192.168.10.11:18999/api/`
 - `/gateway/personnel/` -> `http://192.168.10.11:18050/s/personnel/`
 - `/gateway/vehicle/` -> `http://192.168.10.11:18050/s/vehicle/`
 - `/gateway/crane/` -> `http://192.168.10.11:8000/`
 
 The config also rewrites upstream redirects from both `192.168.10.11` and `10.13.0.8` so a browser stays on the entry host it used.
+
+Gate animation signals are read directly from the personnel and vehicle gateway routes. Port `8084` is no longer part of the cockpit runtime.
 
 ## Related runtime changes outside this repository
 

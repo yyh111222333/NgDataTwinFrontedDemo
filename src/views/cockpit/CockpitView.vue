@@ -435,12 +435,14 @@ const applyCockpitDoorSignals = (signals: CockpitDoorSignal[]) => {
     doorStates[signal.doorId] = signal.open
     doorFlowDirections[signal.doorId] = signal.direction
     revisions[signal.doorId] = (revisions[signal.doorId] ?? 0) + 1
-    events.push({
-      eventId: `cockpit_${signal.sourceDoorId}_${signal.version}`,
-      doorId: signal.doorId,
-      direction: signal.direction,
-      occurredAt: signal.occurredAt || new Date().toISOString(),
-    })
+    if (!signal.silent) {
+      events.push({
+        eventId: `cockpit_${signal.sourceDoorId}_${signal.version}`,
+        doorId: signal.doorId,
+        direction: signal.direction,
+        occurredAt: signal.occurredAt || new Date().toISOString(),
+      })
+    }
   })
 
   currentState.value = { ...currentState.value, doorStates, doorFlowDirections }

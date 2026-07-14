@@ -6,20 +6,44 @@ export type UseCockpitDoorSignalsOptions = {
   enabled: Ref<boolean>
   validDoorIds: ReadonlySet<string>
   intervalMs?: number
+  transientResetMs?: number
   onSignals: (signals: CockpitDoorSignal[]) => void
   onError?: (error: unknown) => void
 }
 
 /**
- * 轮询 8084 门状态接口。首次成功请求只建立版本基线，避免重放历史测试状态；
- * 后续按每个源门的 updatedAt/open/direction 变化触发场景动画。
+ * 轮询人员、车辆子系统的真实通行记录。首次成功请求只建立版本基线，
+ * 避免重放历史记录；后续按每个源门的事件版本变化触发场景动画。
  */
 export const useCockpitDoorSignals = (options: UseCockpitDoorSignalsOptions) => {
   const intervalMs = options.intervalMs ?? 1_000
+  const transientResetMs = options.transientResetMs ?? 2_500
   let previousVersions: Record<string, string> = {}
   let initialized = false
   let timer: number | null = null
   let polling = false
+  const resetTimers = new Map<string, number>()
+
+  const scheduleTransientReset = (signal: CockpitDoorSignal) => {
+    if (!signal.transient || !signal.open) return
+
+    const previousTimer = resetTimers.get(signal.sourceDoorId)
+    if (previousTimer !== undefined) window.clearTimeout(previousTimer)
+
+    const resetTimer = window.setTimeout(() => {
+      resetTimers.delete(signal.sourceDoorId)
+      options.onSignals([
+        {
+          ...signal,
+          open: false,
+          transient: false,
+          silent: true,
+          version: `${signal.version}|reset`,
+        },
+      ])
+    }, transientResetMs)
+    resetTimers.set(signal.sourceDoorId, resetTimer)
+  }
 
   const pollOnce = async () => {
     if (!options.enabled.value || polling) return
@@ -33,12 +57,15 @@ export const useCockpitDoorSignals = (options: UseCockpitDoorSignalsOptions) => 
       if (initialized) {
         const changed = signals.filter((signal) => {
           const previous = previousVersions[signal.sourceDoorId]
-          return previous !== undefined && previous !== signal.version
+          return previous !== signal.version
         })
-        if (changed.length > 0) options.onSignals(changed)
+        if (changed.length > 0) {
+          options.onSignals(changed)
+          changed.forEach(scheduleTransientReset)
+        }
       }
 
-      previousVersions = nextVersions
+      previousVersions = { ...previousVersions, ...nextVersions }
       initialized = true
     } catch (error) {
       options.onError?.(error)
@@ -58,6 +85,8 @@ export const useCockpitDoorSignals = (options: UseCockpitDoorSignalsOptions) => 
       window.clearInterval(timer)
       timer = null
     }
+    resetTimers.forEach((resetTimer) => window.clearTimeout(resetTimer))
+    resetTimers.clear()
   }
 
   onMounted(start)

@@ -4,8 +4,8 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
-// 本地 dev 代理目标，与 Docker 部署中 nginx 反代行为一致（同源 /api、/health）
-const devApiTarget = process.env.VITE_DEV_API_PROXY_TARGET ?? 'http://localhost:8084'
+// 本地开发复用已部署的大屏网关，避免浏览器直接访问厂区内网服务。
+const devGatewayTarget = process.env.VITE_DEV_GATEWAY_TARGET ?? 'http://10.13.0.8:8083'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -20,12 +20,16 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': {
-        target: devApiTarget,
+      '/gateway': {
+        target: devGatewayTarget,
+        changeOrigin: true,
+      },
+      '/relay-api': {
+        target: devGatewayTarget,
         changeOrigin: true,
       },
       '/health': {
-        target: devApiTarget,
+        target: devGatewayTarget,
         changeOrigin: true,
       },
     },

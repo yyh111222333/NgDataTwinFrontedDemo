@@ -9,7 +9,7 @@ ARG NPM_REGISTRY=https://registry.npmmirror.com
 RUN npm config set registry ${NPM_REGISTRY} \
     && if [ -f package-lock.json ]; then npm ci --no-audit --prefer-offline; else npm install --no-audit --prefer-offline; fi
 
-# 留空表示同源请求，由 nginx 将 /api、/health 反代到后端
+# 留空表示同源请求，由 nginx 代理各业务子系统和健康检查
 ARG VITE_API_BASE_URL=
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
