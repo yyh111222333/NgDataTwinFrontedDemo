@@ -454,6 +454,50 @@ const applyCockpitDoorSignals = (signals: CockpitDoorSignal[]) => {
   gateAccessError.value = null
 }
 
+const VEHICLE_BARRIER_DEMO_DOOR_IDS = [
+  'vehicleBarrier_07',
+  'vehicleBarrier_8',
+  'vehicleBarrier_10',
+] as const
+let barrierDemoOpenTimer: number | null = null
+let barrierDemoCloseTimer: number | null = null
+
+const triggerVehicleBarrierDemoFromQuery = () => {
+  const demo = new URLSearchParams(window.location.search).get('demo')
+  if (demo !== 'barriers') return
+
+  barrierDemoOpenTimer = window.setTimeout(() => {
+    const occurredAt = new Date().toISOString()
+    const demoVersion = `demo_${Date.now()}`
+    const openSignals: CockpitDoorSignal[] = VEHICLE_BARRIER_DEMO_DOOR_IDS.map((doorId) => ({
+      sourceDoorId: `demo:${doorId}`,
+      doorId,
+      open: true,
+      direction: 'in',
+      occurredAt,
+      version: demoVersion,
+      silent: true,
+    }))
+    applyCockpitDoorSignals(openSignals)
+
+    barrierDemoCloseTimer = window.setTimeout(() => {
+      applyCockpitDoorSignals(
+        openSignals.map((signal) => ({
+          ...signal,
+          open: false,
+          version: `${signal.version}|reset`,
+        })),
+      )
+    }, 2_500)
+  }, 1_500)
+}
+
+onMounted(triggerVehicleBarrierDemoFromQuery)
+onBeforeUnmount(() => {
+  if (barrierDemoOpenTimer !== null) window.clearTimeout(barrierDemoOpenTimer)
+  if (barrierDemoCloseTimer !== null) window.clearTimeout(barrierDemoCloseTimer)
+})
+
 const applyIncomingGateEvents = (events: GateAccessEvent[]) => {
   if (events.length === 0) return
   const slice = applyGateAccessEvents(
