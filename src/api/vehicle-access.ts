@@ -21,10 +21,10 @@ import type {
 } from '@/types/vehicle-access'
 import { VEHICLE_ACCESS_CHANNELS, VEHICLE_MATTER_TYPES } from '@/types/vehicle-access'
 
-const VEHICLE_ORDER_URL = '/gateway/vehicle-stats/InParkRecord/GetParkOrderList'
+const VEHICLE_ORDER_URL = '/gateway/vehicle/InParkRecord/GetParkOrderList'
 const VEHICLE_PARK_CODE = '2077023635452858368'
 const VEHICLE_ORDER_PAGE_SIZE = 500
-const VEHICLE_DATA_CACHE_MS = 20_000
+const VEHICLE_DATA_CACHE_MS = 8_000
 
 type VehiclePlatformOrder = {
   ParkOrder_ID?: number | string | null
