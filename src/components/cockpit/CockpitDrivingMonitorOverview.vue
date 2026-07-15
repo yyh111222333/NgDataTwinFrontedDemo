@@ -1,4 +1,4 @@
-<!-- 行车监测概况：停车评分统计饼图 + 其余 Tab 占位。 -->
+<!-- 行车监测概况：接入行车子系统的停车、疲劳与遮挡数据。 -->
 <script setup lang="ts">
 import CockpitPanelTabs from '@/components/cockpit/CockpitPanelTabs.vue'
 import FatigueStatsChart from '@/components/cockpit/FatigueStatsChart.vue'

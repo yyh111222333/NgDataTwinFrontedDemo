@@ -3,13 +3,12 @@ import type { ApiResponse } from '@/types/dashboard'
 /** 行车监测 — 统计粒度 */
 export type DrivingMonitorGranularity = 'day' | 'month' | 'year'
 
-/** 停车评分等级（饼图固定 5 档，顺序与图例一致） */
+/** 行车子系统停车评分等级，顺序与图例一致。 */
 export const PARKING_SCORE_GRADES = [
   { id: 'excellent', name: '优秀(≥90分)', color: '#5ce8ff' },
   { id: 'good', name: '良好(80-89分)', color: '#4ade80' },
-  { id: 'pass', name: '合格(70-79分)', color: '#e8c84a' },
-  { id: 'warning', name: '预警(60-69分)', color: '#f59e0b' },
-  { id: 'fail', name: '不合格(<60分)', color: '#f87171' },
+  { id: 'general', name: '一般(60-79分)', color: '#e8c84a' },
+  { id: 'poor', name: '较差(<60分)', color: '#f87171' },
 ] as const
 
 export type ParkingScoreGradeId = (typeof PARKING_SCORE_GRADES)[number]['id']
@@ -51,7 +50,7 @@ export interface ParkingScoreStatsQuery {
   anchor: string
 }
 
-/** 疲劳统计 — 固定 5 台行车 */
+/** 疲劳统计 Mock 使用的行车列表。真实数据可返回风险分级。 */
 export const FATIGUE_CRANE_UNITS = [
   { id: 'c1', name: '1号行车' },
   { id: 'c2', name: '2号行车' },
@@ -60,7 +59,7 @@ export const FATIGUE_CRANE_UNITS = [
   { id: 'c5', name: '5号行车' },
 ] as const
 
-export type FatigueCraneId = (typeof FATIGUE_CRANE_UNITS)[number]['id']
+export type FatigueCraneId = string
 
 export interface FatigueStatItem {
   craneId: FatigueCraneId
@@ -80,6 +79,9 @@ export interface FatigueStatsData {
     totalCount: number
     maxCraneName: string
     maxCount: number
+    warningCount?: number
+    highRiskCount?: number
+    overLimitCount?: number
   }
 }
 
@@ -98,7 +100,7 @@ export const OCCLUSION_CAMERA_NODES = [
   { id: 'cam6', name: '6号摄像头' },
 ] as const
 
-export type OcclusionCameraId = (typeof OCCLUSION_CAMERA_NODES)[number]['id']
+export type OcclusionCameraId = string
 
 export interface OcclusionStatItem {
   cameraId: OcclusionCameraId
@@ -120,6 +122,8 @@ export interface OcclusionStatsData {
     totalCount: number
     totalDurationMinutes: number
     alertCount: number
+    affectedVehicleCount?: number
+    pendingCount?: number
   }
 }
 

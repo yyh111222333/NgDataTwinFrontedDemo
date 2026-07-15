@@ -1,16 +1,17 @@
-import { apiClient } from '@/api/client'
+import {
+  loadCraneFatigueStats,
+  loadCraneOcclusionStats,
+  loadCraneParkingStats,
+} from '@/api/crane-subsystem-monitor'
 import { resolveUseMock } from '@/api/resolve-use-mock'
 import { buildParkingScoreStatsMock } from '@/mocks/driving-monitor-parking-score-stats'
 import { buildFatigueStatsMock } from '@/mocks/driving-monitor-fatigue-stats'
 import { buildOcclusionStatsMock } from '@/mocks/driving-monitor-occlusion-stats'
 import type {
-  FatigueStatsApiResponse,
   FatigueStatsData,
   FatigueStatsQuery,
-  OcclusionStatsApiResponse,
   OcclusionStatsData,
   OcclusionStatsQuery,
-  ParkingScoreStatsApiResponse,
   ParkingScoreStatsData,
   ParkingScoreStatsQuery,
 } from '@/types/driving-monitor'
@@ -18,7 +19,7 @@ import type {
 /**
  * 行车监测 — 停车评分统计
  *
- * GET /api/driving-monitor/parking-score-stats
+ * 数据源：/gateway/crane/crane-monitor-source.json
  */
 export async function getParkingScoreStats(
   query: ParkingScoreStatsQuery,
@@ -28,17 +29,10 @@ export async function getParkingScoreStats(
     return buildParkingScoreStatsMock(query.granularity, query.anchor)
   }
 
-  const { data: body } = await apiClient.get<ParkingScoreStatsApiResponse>(
-    '/api/driving-monitor/parking-score-stats',
-    { params: query },
-  )
-  if (!body.success || body.data == null) {
-    throw new Error(body.message || '获取停车评分统计失败')
-  }
-  return body.data
+  return loadCraneParkingStats(query.granularity, query.anchor)
 }
 
-/** GET /api/driving-monitor/fatigue-stats */
+/** 行车子系统疲劳风险统计 */
 export async function getFatigueStats(
   query: FatigueStatsQuery,
   options?: { useMock?: boolean },
@@ -47,17 +41,10 @@ export async function getFatigueStats(
     return buildFatigueStatsMock(query.granularity, query.anchor)
   }
 
-  const { data: body } = await apiClient.get<FatigueStatsApiResponse>(
-    '/api/driving-monitor/fatigue-stats',
-    { params: query },
-  )
-  if (!body.success || body.data == null) {
-    throw new Error(body.message || '获取疲劳次数统计失败')
-  }
-  return body.data
+  return loadCraneFatigueStats(query.granularity, query.anchor)
 }
 
-/** GET /api/driving-monitor/occlusion-stats */
+/** 行车子系统遮挡告警统计 */
 export async function getOcclusionStats(
   query: OcclusionStatsQuery,
   options?: { useMock?: boolean },
@@ -66,12 +53,5 @@ export async function getOcclusionStats(
     return buildOcclusionStatsMock(query.granularity, query.anchor)
   }
 
-  const { data: body } = await apiClient.get<OcclusionStatsApiResponse>(
-    '/api/driving-monitor/occlusion-stats',
-    { params: query },
-  )
-  if (!body.success || body.data == null) {
-    throw new Error(body.message || '获取遮挡监测统计失败')
-  }
-  return body.data
+  return loadCraneOcclusionStats(query.granularity, query.anchor)
 }

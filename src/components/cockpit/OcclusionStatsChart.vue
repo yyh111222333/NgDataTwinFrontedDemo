@@ -20,12 +20,15 @@ const STATUS_COLORS: Record<OcclusionStatusLevel, string> = {
 
 const { granularity, statsData, loading, loadError, granularityOptions } = useGranularityStatsChart(
   getOcclusionStats,
-  true,
+  false,
+  undefined,
+  30_000,
 )
 
 const chartOption = computed(() => {
   const data = statsData.value
   if (!data?.items.length) return { backgroundColor: 'transparent' }
+  const maxValue = Math.max(...data.items.map((item) => item.occlusionCount), 1)
 
   return {
     backgroundColor: 'transparent',
@@ -45,17 +48,13 @@ const chartOption = computed(() => {
         if (!item) return ''
         const statusText =
           item.status === 'critical' ? '告警' : item.status === 'warning' ? '预警' : '正常'
-        return [
-          item.cameraName,
-          `遮挡 ${item.occlusionCount} 次`,
-          `时长 ${item.durationMinutes} 分钟 · ${statusText}`,
-        ].join('<br/>')
+        return [item.cameraName, `告警 ${item.occlusionCount} 次`, statusText].join('<br/>')
       },
     },
     xAxis: {
       type: 'value',
       min: 0,
-      max: 20, // 固定刻度20，让柱子保持合适高度
+      max: Math.max(4, Math.ceil(maxValue / 5) * 5),
       splitLine: { lineStyle: { color: 'rgba(48, 200, 255, 0.08)' } },
       axisLabel: { color: 'rgba(160, 200, 220, 0.55)', fontSize: 10 },
     },
@@ -122,10 +121,10 @@ const chartOption = computed(() => {
     <div v-if="statsData" class="panel-chart__summary">
       <span class="panel-chart__metric"><em>遮挡</em>{{ statsData.summary.totalCount }} 次</span>
       <span class="panel-chart__metric is-warn">
-        <em>时长</em>{{ statsData.summary.totalDurationMinutes }} 分
+        <em>涉及车辆</em>{{ statsData.summary.affectedVehicleCount ?? 0 }}
       </span>
       <span class="panel-chart__metric is-risk"
-        ><em>预警</em>{{ statsData.summary.alertCount }}</span
+        ><em>待处理</em>{{ statsData.summary.pendingCount ?? statsData.summary.alertCount }}</span
       >
     </div>
   </div>

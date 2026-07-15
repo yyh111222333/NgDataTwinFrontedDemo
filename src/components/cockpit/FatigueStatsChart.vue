@@ -20,12 +20,15 @@ const barGradient = new echarts.graphic.LinearGradient(0, 0, 0, 1, [
 
 const { granularity, statsData, loading, loadError, granularityOptions } = useGranularityStatsChart(
   getFatigueStats,
-  true,
+  false,
+  undefined,
+  30_000,
 )
 
 const chartOption = computed(() => {
   const data = statsData.value
   if (!data?.items.length) return { backgroundColor: 'transparent' }
+  const maxValue = Math.max(...data.items.map((item) => item.fatigueCount), 1)
 
   return {
     backgroundColor: 'transparent',
@@ -50,7 +53,7 @@ const chartOption = computed(() => {
     yAxis: {
       type: 'value',
       min: 0,
-      max: 30, // 固定刻度30，让柱子保持合适高度
+      max: Math.max(4, Math.ceil(maxValue / 5) * 5),
       minInterval: 1,
       splitLine: { lineStyle: { color: 'rgba(48, 200, 255, 0.08)' } },
       axisLabel: { color: 'rgba(160, 200, 220, 0.55)', fontSize: 10 },
@@ -100,9 +103,12 @@ const chartOption = computed(() => {
       <div v-if="loading && statsData" class="panel-chart__loading-mask" aria-hidden="true" />
     </div>
     <div v-if="statsData" class="panel-chart__summary">
-      <span class="panel-chart__metric"><em>总次数</em>{{ statsData.summary.totalCount }}</span>
+      <span class="panel-chart__metric"><em>风险人数</em>{{ statsData.summary.totalCount }}</span>
       <span class="panel-chart__metric is-warn">
-        <em>最高</em>{{ statsData.summary.maxCraneName }} ({{ statsData.summary.maxCount }})
+        <em>疲劳预警</em>{{ statsData.summary.warningCount ?? statsData.summary.totalCount }}
+      </span>
+      <span class="panel-chart__metric is-risk">
+        <em>高风险</em>{{ statsData.summary.highRiskCount ?? statsData.summary.maxCount }}
       </span>
     </div>
   </div>

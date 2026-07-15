@@ -2,12 +2,16 @@
 <script setup lang="ts">
 import { getParkingScoreStats } from '@/api/driving-monitor'
 import { defaultParkingScoreStatsAnchors } from '@/mocks/driving-monitor-parking-score-stats'
-import { PARKING_SCORE_GRADES, type DrivingMonitorGranularity, type ParkingScoreStatsData } from '@/types/driving-monitor'
+import {
+  PARKING_SCORE_GRADES,
+  type DrivingMonitorGranularity,
+  type ParkingScoreStatsData,
+} from '@/types/driving-monitor'
 import { PieChart } from 'echarts/charts'
 import { LegendComponent, TooltipComponent } from 'echarts/components'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import VChart from 'vue-echarts'
 
 use([PieChart, TooltipComponent, LegendComponent, CanvasRenderer])
@@ -30,7 +34,7 @@ const loadStats = async () => {
   try {
     statsData.value = await getParkingScoreStats(
       { granularity: granularity.value, anchor: resolveAnchor(granularity.value) },
-      { useMock: true },
+      { useMock: false },
     )
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : String(e)
@@ -44,8 +48,15 @@ watch(granularity, () => {
   void loadStats()
 })
 
+let refreshTimer: number | null = null
+
 onMounted(() => {
   void loadStats()
+  refreshTimer = window.setInterval(() => void loadStats(), 30_000)
+})
+
+onBeforeUnmount(() => {
+  if (refreshTimer !== null) window.clearInterval(refreshTimer)
 })
 
 const granularityOptions = computed(
@@ -156,7 +167,11 @@ const chartOption = computed(() => {
       <p v-if="loadError" class="parking-score-chart__state is-error">{{ loadError }}</p>
       <p v-else-if="loading && !statsData" class="parking-score-chart__state">加载中…</p>
       <VChart v-else class="parking-score-chart__echart" :option="chartOption" autoresize />
-      <div v-if="loading && statsData" class="parking-score-chart__loading-mask" aria-hidden="true" />
+      <div
+        v-if="loading && statsData"
+        class="parking-score-chart__loading-mask"
+        aria-hidden="true"
+      />
     </div>
 
     <div v-if="statsData" class="parking-score-chart__summary">
