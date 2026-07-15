@@ -41,6 +41,7 @@ Gate animation signals are read directly from the personnel and vehicle gateway 
 
 These were applied on the server but belong to other runtime components:
 
-- `win10-platform-proxy` maps `:8888` on `ngserver1-2404` to the Windows vehicle platform on `ngserver1-win10`.
+- The access-control gateway uses `http://192.168.10.10:8888` as the vehicle upstream. Keeping this hop on the plant LAN prevents vehicle statistics from timing out when the Linux WireGuard peer reconnects.
+- `win10-platform-proxy` maps `:8888` on `ngserver1-2404` to the Windows vehicle platform on `ngserver1-win10` for direct diagnostic access; the cockpit vehicle route does not depend on this extra hop.
 - The monitoring dashboard template was adjusted to build `18051` API URLs and `9002` WebSocket video URLs from the browser's current hostname.
 - The `cpe-watchdog` container was stopped so port `5000` is no longer published.
