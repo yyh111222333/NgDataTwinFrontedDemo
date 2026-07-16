@@ -141,6 +141,13 @@ def public_stats(start: str = "", end: str = ""):
     )
 
 
+@app.get("/api/public/summary")
+def public_summary():
+    """Current vehicle presence used by the cockpit KPI polling."""
+
+    return database.get_presence_summary(settings.parking_capacity)
+
+
 @app.get("/api/public/events")
 def public_events(limit: Annotated[int, Query(ge=1, le=100)] = 20):
     """Expose only the fields required to drive the 3D barrier animation."""

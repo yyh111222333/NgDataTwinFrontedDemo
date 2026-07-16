@@ -326,6 +326,24 @@ class ParkingDatabase:
             ).fetchall()
             return self._rows(rows)
 
+    def get_presence_summary(self, capacity: int) -> dict[str, Any]:
+        with self.connect() as db:
+            inside = int(
+                db.execute("SELECT COUNT(*) FROM parking_sessions WHERE status='open'").fetchone()[0]
+            )
+            online = int(db.execute("SELECT COUNT(*) FROM gates WHERE online=1").fetchone()[0])
+            total = int(db.execute("SELECT COUNT(*) FROM gates").fetchone()[0])
+            latest_event = db.execute("SELECT MAX(captured_at) FROM events").fetchone()[0]
+
+        return {
+            "vehicles_on_site": inside,
+            "remaining_spaces": max(0, capacity - inside),
+            "online_gates": online,
+            "offline_gates": max(0, total - online),
+            "latest_event_at": latest_event,
+            "updated_at": now_text(),
+        }
+
     def get_stats(self, start: str, end: str, capacity: int) -> dict[str, Any]:
         with self.connect() as db:
             direction_rows = db.execute(

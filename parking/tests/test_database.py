@@ -57,6 +57,19 @@ class ParkingDatabaseTest(unittest.TestCase):
         self.assertEqual(stats["channels"][0]["gate_no"], 7)
         self.assertEqual(stats["channels"][0]["enter_count"], 1)
 
+    def test_presence_summary_tracks_open_sessions_and_gate_status(self):
+        self.insert_event("in-1", "gate-in", "in", 100)
+        self.database.rebuild_sessions()
+        self.database.set_gate_status("gate-in", True)
+
+        summary = self.database.get_presence_summary(500)
+
+        self.assertEqual(summary["vehicles_on_site"], 1)
+        self.assertEqual(summary["remaining_spaces"], 499)
+        self.assertEqual(summary["online_gates"], 1)
+        self.assertEqual(summary["offline_gates"], 1)
+        self.assertEqual(summary["latest_event_at"], "2026-07-16 10:00:00")
+
     def test_vehicle_appointment_updates_whitelist_and_status(self):
         appointment = self.database.create_appointment(
             {

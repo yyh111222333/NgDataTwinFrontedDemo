@@ -3,7 +3,12 @@
 import { computed } from 'vue'
 
 const props = defineProps<{
-  items: Array<{ value: string | number; label: string }>
+  items: Array<{
+    value: string | number
+    label: string
+    live?: boolean
+    revision?: number
+  }>
 }>()
 
 const toneClass = (label: string, value: string | number) => {
@@ -45,10 +50,13 @@ const gridLayoutClass = computed(() =>
 
     <div class="cockpit-stats__grid" :class="gridLayoutClass">
       <div
-        v-for="(item, idx) in items"
-        :key="idx"
+        v-for="item in items"
+        :key="`${item.label}-${item.revision ?? 0}`"
         class="cockpit-stats__item"
-        :class="toneClass(item.label, item.value)"
+        :class="[
+          toneClass(item.label, item.value),
+          { 'is-live': item.live, 'is-updated': (item.revision ?? 0) > 0 },
+        ]"
       >
         <div class="cockpit-stats__pedestal">
           <span class="cockpit-stats__halo cockpit-stats__halo--outer" aria-hidden="true" />
@@ -61,7 +69,10 @@ const gridLayoutClass = computed(() =>
             <span class="cockpit-stats__value">{{ formatValue(item.label, item.value) }}</span>
           </div>
         </div>
-        <span class="cockpit-stats__label">{{ item.label }}</span>
+        <span class="cockpit-stats__label">
+          <i v-if="item.live" class="cockpit-stats__live-dot" aria-label="实时数据" />
+          {{ item.label }}
+        </span>
       </div>
     </div>
   </div>
@@ -423,12 +434,29 @@ const gridLayoutClass = computed(() =>
   letter-spacing: 0.02em;
 }
 
+.cockpit-stats__item.is-updated .cockpit-stats__value {
+  animation: cockpit-stats-live-update 0.7s ease-out;
+}
+
 .cockpit-stats__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.1em;
   color: rgba(220, 245, 255, 0.9);
   white-space: nowrap;
+}
+
+.cockpit-stats__live-dot {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 5px;
+  border-radius: 50%;
+  background: #55ef96;
+  box-shadow: 0 0 7px rgba(85, 239, 150, 0.9);
+  animation: cockpit-stats-live-dot 1.8s ease-in-out infinite;
 }
 
 .cockpit-stats__item.tone-idle .cockpit-stats__label {
@@ -450,6 +478,32 @@ const gridLayoutClass = computed(() =>
   }
   50% {
     opacity: 0.34;
+  }
+}
+
+@keyframes cockpit-stats-live-update {
+  0% {
+    transform: scale(0.76);
+    color: #55ef96;
+    opacity: 0.35;
+  }
+  55% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes cockpit-stats-live-dot {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 10px rgba(85, 239, 150, 1);
   }
 }
 

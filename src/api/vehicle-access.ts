@@ -37,11 +37,22 @@ type ParkingStatsResponse = {
   period: { start: string; end: string }
 }
 
+type ParkingPresenceResponse = {
+  vehicles_on_site: number
+  remaining_spaces: number
+  online_gates: number
+  offline_gates: number
+  latest_event_at: string | null
+  updated_at: string
+}
+
 export type VehiclePlatformSummary = {
   vehiclesOnSite: number
   remainingSpaces: number
   onlineDevices: number
   offlineDevices: number
+  latestEventAt: string | null
+  updatedAt: string
 }
 
 type PeriodBounds = { start: string; end: string }
@@ -116,16 +127,20 @@ const getTimeSlotIndex = (value: string, granularity: VehicleAccessGranularity) 
   return Number(value.slice(5, 7)) - 1
 }
 
-const currentDay = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' })
-
 /** 读取新停车服务的实时在场车辆及相机在线状态。 */
 export async function getVehiclePlatformSummary(): Promise<VehiclePlatformSummary> {
-  const data = await fetchParkingStats('day', currentDay())
+  const { data } = await apiClient.get<ParkingPresenceResponse>('/parking-api/public/summary', {
+    params: { _: Date.now() },
+    headers: { 'Cache-Control': 'no-cache' },
+    timeout: 3_000,
+  })
   return {
-    vehiclesOnSite: data.summary.inside,
-    remainingSpaces: data.summary.remaining_spaces,
-    onlineDevices: data.summary.online_gates,
-    offlineDevices: data.summary.offline_gates,
+    vehiclesOnSite: data.vehicles_on_site,
+    remainingSpaces: data.remaining_spaces,
+    onlineDevices: data.online_gates,
+    offlineDevices: data.offline_gates,
+    latestEventAt: data.latest_event_at,
+    updatedAt: data.updated_at,
   }
 }
 

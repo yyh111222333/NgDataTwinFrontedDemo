@@ -69,6 +69,8 @@ const apiLoading = ref(false)
 const apiError = ref<string | null>(null)
 const mockRefreshTick = ref(0)
 const realtimeVehiclesOnSite = ref<number | null>(null)
+const vehiclePresenceOnline = ref(false)
+const vehiclePresenceRevision = ref(0)
 
 type DashboardViewState = {
   onlineAccess: number
@@ -127,6 +129,8 @@ const runtimeKpiStats = computed(() => [
   {
     value: String(realtimeVehiclesOnSite.value ?? currentState.value.vehiclesOnSite),
     label: '车辆在场',
+    live: vehiclePresenceOnline.value,
+    revision: vehiclePresenceRevision.value,
   },
   { value: currentState.value.railStatus, label: '火车道状态' },
   { value: String(currentState.value.alarmCount), label: '异常警告' },
@@ -273,6 +277,8 @@ watch(
 let clockTimer: number | null = null
 let debugKeyHandler: ((e: KeyboardEvent) => void) | null = null
 let vehicleSummaryTimer: number | null = null
+let vehicleVisibilityHandler: (() => void) | null = null
+let vehicleSummaryLoading = false
 
 const weekMap = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'] as const
 
@@ -293,11 +299,20 @@ const updateClock = () => {
 }
 
 const loadVehicleSummary = async () => {
+  if (vehicleSummaryLoading) return
+  vehicleSummaryLoading = true
   try {
     const summary = await getVehiclePlatformSummary()
+    if (realtimeVehiclesOnSite.value !== summary.vehiclesOnSite) {
+      vehiclePresenceRevision.value += 1
+    }
     realtimeVehiclesOnSite.value = summary.vehiclesOnSite
+    vehiclePresenceOnline.value = true
   } catch (error) {
+    vehiclePresenceOnline.value = false
     apiError.value = error instanceof Error ? error.message : String(error)
+  } finally {
+    vehicleSummaryLoading = false
   }
 }
 
@@ -305,7 +320,11 @@ onMounted(() => {
   updateClock()
   clockTimer = window.setInterval(updateClock, 1000)
   void loadVehicleSummary()
-  vehicleSummaryTimer = window.setInterval(() => void loadVehicleSummary(), 10_000)
+  vehicleSummaryTimer = window.setInterval(() => void loadVehicleSummary(), 3_000)
+  vehicleVisibilityHandler = () => {
+    if (document.visibilityState === 'visible') void loadVehicleSummary()
+  }
+  document.addEventListener('visibilitychange', vehicleVisibilityHandler)
 
   debugKeyHandler = (e: KeyboardEvent) => {
     const byF8 = e.key === 'F8'
@@ -323,6 +342,10 @@ onBeforeUnmount(() => {
   }
   if (vehicleSummaryTimer !== null) {
     window.clearInterval(vehicleSummaryTimer)
+  }
+  if (vehicleVisibilityHandler) {
+    document.removeEventListener('visibilitychange', vehicleVisibilityHandler)
+    vehicleVisibilityHandler = null
   }
   if (debugKeyHandler) {
     window.removeEventListener('keydown', debugKeyHandler)
