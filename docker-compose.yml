@@ -11,3 +11,26 @@ services:
     ports:
       - "${FRONTEND_PORT:-8083}:8083"
     restart: always
+
+  parking:
+    build:
+      context: ./parking
+      dockerfile: Dockerfile
+    image: nangang-parking:1.0.0
+    container_name: nangang-parking
+    ports:
+      - "${PARKING_PORT:-19080}:19080"
+    environment:
+      CAMERA_USERNAME: ${CAMERA_USERNAME:-admin}
+      CAMERA_PASSWORD: ${CAMERA_PASSWORD:-change-me}
+      PARKING_ADMIN_USERNAME: ${PARKING_ADMIN_USERNAME:-admin}
+      PARKING_ADMIN_PASSWORD: ${PARKING_ADMIN_PASSWORD:-change-me}
+      PARKING_AUTH_SECRET: ${PARKING_AUTH_SECRET:-replace-before-deploy}
+      PARKING_CAPACITY: ${PARKING_CAPACITY:-500}
+      TZ: Asia/Shanghai
+    volumes:
+      - parking-data:/data
+    restart: always
+
+volumes:
+  parking-data:

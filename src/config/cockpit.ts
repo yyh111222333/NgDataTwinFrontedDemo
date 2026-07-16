@@ -37,7 +37,7 @@ const currentHostUrl = (port: number, path: string) => {
 // 底部 4 个子系统入口
 export const bottomMenus: BottomMenu[] = [
   { id: 'personnel', label: '人员管控子系统', url: '/gateway/personnel/' },
-  { id: 'vehicle', label: '车辆管控子系统', url: '/gateway/vehicle/' },
+  { id: 'vehicle', label: '车辆管控子系统', url: '/parking' },
   { id: 'crane', label: '行车管控子系统', url: '/gateway/crane/' },
   { id: 'monitor', label: '智慧监控子系统', url: currentHostUrl(9001, '/dashboard') },
 ]

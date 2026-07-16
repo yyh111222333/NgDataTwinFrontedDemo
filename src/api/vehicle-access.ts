@@ -21,32 +21,20 @@ import type {
 } from '@/types/vehicle-access'
 import { VEHICLE_ACCESS_CHANNELS, VEHICLE_MATTER_TYPES } from '@/types/vehicle-access'
 
-const VEHICLE_ORDER_URL = '/gateway/vehicle/InParkRecord/GetParkOrderList'
-const VEHICLE_PARK_CODE = '2077023635452858368'
-const VEHICLE_ORDER_PAGE_SIZE = 500
-const VEHICLE_DATA_CACHE_MS = 8_000
-
-type VehiclePlatformOrder = {
-  ParkOrder_ID?: number | string | null
-  ParkOrder_No?: string | null
-  ParkOrder_CarTypeName?: string | null
-  ParkOrder_EnterTime?: string | null
-  ParkOrder_EnterPasswayName?: string | null
-  ParkOrder_OutTime?: string | null
-  ParkOrder_OutPasswayName?: string | null
-  ParkOrder_IsUnlicensedCar?: number | string | null
-}
-
-type VehicleOrderListResponse = {
-  count?: number
-  data?: VehiclePlatformOrder[]
-  msg?: string
-}
-
-type VehicleSummaryResponse = {
-  success?: boolean
-  msg?: string
-  data?: { num1?: number | string; num2?: number | string }
+type ParkingStatsResponse = {
+  summary: {
+    entries: number
+    exits: number
+    inside: number
+    remaining_spaces: number
+    online_gates: number
+    offline_gates: number
+    unregistered_events: number
+  }
+  channels: Array<{ gate_no: number; enter_count: number; exit_count: number }>
+  matters: Record<string, number>
+  timeline: Array<{ captured_at: string; direction: 'in' | 'out' }>
+  period: { start: string; end: string }
 }
 
 export type VehiclePlatformSummary = {
@@ -56,17 +44,11 @@ export type VehiclePlatformSummary = {
   offlineDevices: number
 }
 
-type PeriodBounds = {
-  start: string
-  end: string
-}
+type PeriodBounds = { start: string; end: string }
+type CachedStats = { expiresAt: number; promise: Promise<ParkingStatsResponse> }
 
-type CachedOrders = {
-  expiresAt: number
-  promise: Promise<VehiclePlatformOrder[]>
-}
-
-const ordersCache = new Map<string, CachedOrders>()
+const statsCache = new Map<string, CachedStats>()
+const CACHE_MS = 5_000
 
 const toPeriodBounds = (granularity: VehicleAccessGranularity, anchor: string): PeriodBounds => {
   const period = buildAccessPeriod(granularity, anchor)
@@ -76,81 +58,27 @@ const toPeriodBounds = (granularity: VehicleAccessGranularity, anchor: string): 
   }
 }
 
-const fetchVehicleOrderPage = async (conditionParam: Record<string, string>, pageIndex: number) => {
-  const body = new URLSearchParams({
-    pageIndex: String(pageIndex),
-    pageSize: String(VEHICLE_ORDER_PAGE_SIZE),
-    conditionParam: JSON.stringify(conditionParam),
-  })
-  const { data } = await apiClient.post<VehicleOrderListResponse>(VEHICLE_ORDER_URL, body, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    timeout: 12_000,
-  })
-  if (!Array.isArray(data.data)) {
-    throw new Error(data.msg || '获取车辆平台出入场记录失败')
-  }
-  return { rows: data.data, count: Number(data.count ?? data.data.length) }
-}
-
-const fetchVehicleOrdersByCondition = async (conditionParam: Record<string, string>) => {
-  const first = await fetchVehicleOrderPage(conditionParam, 1)
-  const pageCount = Math.ceil(first.count / VEHICLE_ORDER_PAGE_SIZE)
-  if (pageCount <= 1) return first.rows
-
-  const remainingPages = await Promise.all(
-    Array.from({ length: pageCount - 1 }, (_, index) =>
-      fetchVehicleOrderPage(conditionParam, index + 2),
-    ),
-  )
-  return [first, ...remainingPages].flatMap((page) => page.rows)
-}
-
-const getVehicleOrders = async (
+const fetchParkingStats = async (
   granularity: VehicleAccessGranularity,
   anchor: string,
-): Promise<VehiclePlatformOrder[]> => {
+): Promise<ParkingStatsResponse> => {
   const cacheKey = `${granularity}:${anchor}`
-  const cached = ordersCache.get(cacheKey)
+  const cached = statsCache.get(cacheKey)
   if (cached && cached.expiresAt > Date.now()) return cached.promise
 
-  const { start, end } = toPeriodBounds(granularity, anchor)
-  const promise = Promise.all([
-    fetchVehicleOrdersByCondition({ ParkOrder_EnterTime0: start, ParkOrder_EnterTime1: end }),
-    fetchVehicleOrdersByCondition({ ParkOrder_OutTime0: start, ParkOrder_OutTime1: end }),
-  ]).then(([enterOrders, exitOrders]) => {
-    const uniqueOrders = new Map<string, VehiclePlatformOrder>()
-    ;[...enterOrders, ...exitOrders].forEach((order) => {
-      const key = String(order.ParkOrder_ID ?? order.ParkOrder_No ?? JSON.stringify(order))
-      uniqueOrders.set(key, order)
+  const promise = apiClient
+    .get<ParkingStatsResponse>('/parking-api/public/stats', {
+      params: toPeriodBounds(granularity, anchor),
+      timeout: 8_000,
     })
-    return [...uniqueOrders.values()]
-  })
-
-  ordersCache.set(cacheKey, { expiresAt: Date.now() + VEHICLE_DATA_CACHE_MS, promise })
+    .then(({ data }) => data)
+  statsCache.set(cacheKey, { expiresAt: Date.now() + CACHE_MS, promise })
   try {
     return await promise
   } catch (error) {
-    ordersCache.delete(cacheKey)
+    statsCache.delete(cacheKey)
     throw error
   }
-}
-
-const isWithinPeriod = (value: string | null | undefined, bounds: PeriodBounds) =>
-  Boolean(value && value >= bounds.start && value <= bounds.end)
-
-const getGateNo = (passwayName: string | null | undefined, direction: '进' | '出') => {
-  if (!passwayName || passwayName.startsWith('*')) return null
-  return passwayName.trim().match(new RegExp(`^(7|8|9|10|11)号门${direction}车道$`))?.[1] ?? null
-}
-
-const classifyVehicle = (order: VehiclePlatformOrder): VehicleMatterId => {
-  const typeName = order.ParkOrder_CarTypeName?.trim() ?? ''
-  if (Number(order.ParkOrder_IsUnlicensedCar) === 1 || /无牌|0牌/.test(typeName))
-    return 'unlicensed'
-  if (typeName.includes('黄')) return 'yellow'
-  if (typeName.includes('蓝')) return 'blue'
-  if (typeName.includes('绿')) return 'green'
-  return 'other'
 }
 
 const buildTimeSlots = (
@@ -165,18 +93,15 @@ const buildTimeSlots = (
       exitCount: 0,
     }))
   }
-
   if (granularity === 'month') {
     const { periodEnd } = buildAccessPeriod(granularity, anchor)
-    const days = Number(periodEnd.slice(-2))
-    return Array.from({ length: days }, (_, index) => ({
+    return Array.from({ length: Number(periodEnd.slice(-2)) }, (_, index) => ({
       slotId: `d${String(index + 1).padStart(2, '0')}`,
       slotLabel: `${index + 1}日`,
       enterCount: 0,
       exitCount: 0,
     }))
   }
-
   return Array.from({ length: 12 }, (_, index) => ({
     slotId: `m${String(index + 1).padStart(2, '0')}`,
     slotLabel: `${index + 1}月`,
@@ -191,26 +116,16 @@ const getTimeSlotIndex = (value: string, granularity: VehicleAccessGranularity) 
   return Number(value.slice(5, 7)) - 1
 }
 
-/** 读取车辆平台当前场内车辆及设备在线统计。 */
+const currentDay = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' })
+
+/** 读取新停车服务的实时在场车辆及相机在线状态。 */
 export async function getVehiclePlatformSummary(): Promise<VehiclePlatformSummary> {
-  const params = { code: VEHICLE_PARK_CODE, _: Date.now() }
-  const [orderResult, deviceResult] = await Promise.all([
-    apiClient.get<VehicleSummaryResponse>('/gateway/vehicle/Index/OrderNumber', { params }),
-    apiClient.get<VehicleSummaryResponse>('/gateway/vehicle/Index/DeviceNumber', { params }),
-  ])
-
-  if (!orderResult.data.success || !orderResult.data.data) {
-    throw new Error(orderResult.data.msg || '获取车辆在场数据失败')
-  }
-  if (!deviceResult.data.success || !deviceResult.data.data) {
-    throw new Error(deviceResult.data.msg || '获取车辆设备状态失败')
-  }
-
+  const data = await fetchParkingStats('day', currentDay())
   return {
-    vehiclesOnSite: Number(orderResult.data.data.num1 ?? 0),
-    remainingSpaces: Number(orderResult.data.data.num2 ?? 0),
-    onlineDevices: Number(deviceResult.data.data.num1 ?? 0),
-    offlineDevices: Number(deviceResult.data.data.num2 ?? 0),
+    vehiclesOnSite: data.summary.inside,
+    remainingSpaces: data.summary.remaining_spaces,
+    onlineDevices: data.summary.online_gates,
+    offlineDevices: data.summary.offline_gates,
   }
 }
 
@@ -219,119 +134,78 @@ export async function getVehicleChannelStats(
   query: VehicleChannelStatsQuery,
   options?: { useMock?: boolean },
 ): Promise<VehicleChannelStatsData> {
-  if (resolveUseMock(options)) {
-    return buildVehicleChannelStatsMock(query.granularity, query.anchor)
-  }
+  if (resolveUseMock(options)) return buildVehicleChannelStatsMock(query.granularity, query.anchor)
 
-  const orders = await getVehicleOrders(query.granularity, query.anchor)
-  const bounds = toPeriodBounds(query.granularity, query.anchor)
-  const envelope = buildGranularityEnvelope(query.granularity, query.anchor)
-  const counters = new Map<string, { enterCount: number; exitCount: number }>(
-    VEHICLE_ACCESS_CHANNELS.map((channel) => [channel.id, { enterCount: 0, exitCount: 0 }]),
-  )
-
-  orders.forEach((order) => {
-    if (isWithinPeriod(order.ParkOrder_EnterTime, bounds)) {
-      const gateNo = getGateNo(order.ParkOrder_EnterPasswayName, '进')
-      const counter = gateNo ? counters.get(gateNo) : null
-      if (counter) counter.enterCount += 1
-    }
-    if (isWithinPeriod(order.ParkOrder_OutTime, bounds)) {
-      const gateNo = getGateNo(order.ParkOrder_OutPasswayName, '出')
-      const counter = gateNo ? counters.get(gateNo) : null
-      if (counter) counter.exitCount += 1
+  const data = await fetchParkingStats(query.granularity, query.anchor)
+  const byGate = new Map(data.channels.map((item) => [String(item.gate_no), item]))
+  const items = VEHICLE_ACCESS_CHANNELS.map((channel) => {
+    const item = byGate.get(channel.id)
+    return {
+      channelId: channel.id,
+      channelName: channel.name,
+      enterCount: item?.enter_count ?? 0,
+      exitCount: item?.exit_count ?? 0,
     }
   })
-
-  const items = VEHICLE_ACCESS_CHANNELS.map((channel) => ({
-    channelId: channel.id,
-    channelName: channel.name,
-    ...counters.get(channel.id)!,
-  }))
-  const enterTotal = items.reduce((sum, item) => sum + item.enterCount, 0)
-  const exitTotal = items.reduce((sum, item) => sum + item.exitCount, 0)
-
   return {
-    ...envelope,
+    ...buildGranularityEnvelope(query.granularity, query.anchor),
     items,
-    summary: { enterTotal, exitTotal, netIn: enterTotal - exitTotal },
+    summary: {
+      enterTotal: data.summary.entries,
+      exitTotal: data.summary.exits,
+      netIn: data.summary.entries - data.summary.exits,
+    },
   }
 }
 
-/** 车辆平台真实车牌类型分布。 */
+/** 车辆识别记录中的真实车牌颜色分布。 */
 export async function getVehicleMatterStats(
   query: VehicleMatterStatsQuery,
   options?: { useMock?: boolean },
 ): Promise<VehicleMatterStatsData> {
-  if (resolveUseMock(options)) {
-    return buildVehicleMatterStatsMock(query.granularity, query.anchor)
+  if (resolveUseMock(options)) return buildVehicleMatterStatsMock(query.granularity, query.anchor)
+
+  const data = await fetchParkingStats(query.granularity, query.anchor)
+  const knownKeys = new Set(['yellow', 'blue', 'green', 'unlicensed'])
+  const otherCount = Object.entries(data.matters).reduce(
+    (sum, [key, count]) => sum + (knownKeys.has(key) ? 0 : count),
+    0,
+  )
+  const counts: Record<VehicleMatterId, number> = {
+    yellow: data.matters.yellow ?? 0,
+    blue: data.matters.blue ?? 0,
+    green: data.matters.green ?? 0,
+    unlicensed: data.matters.unlicensed ?? 0,
+    other: otherCount,
   }
-
-  const orders = await getVehicleOrders(query.granularity, query.anchor)
-  const bounds = toPeriodBounds(query.granularity, query.anchor)
-  const relevantOrders = orders.filter(
-    (order) =>
-      (isWithinPeriod(order.ParkOrder_EnterTime, bounds) &&
-        getGateNo(order.ParkOrder_EnterPasswayName, '进')) ||
-      (isWithinPeriod(order.ParkOrder_OutTime, bounds) &&
-        getGateNo(order.ParkOrder_OutPasswayName, '出')),
-  )
-  const counters = new Map<VehicleMatterId, number>(
-    VEHICLE_MATTER_TYPES.map((matter) => [matter.id, 0]),
-  )
-  relevantOrders.forEach((order) => {
-    const id = classifyVehicle(order)
-    counters.set(id, (counters.get(id) ?? 0) + 1)
-  })
-  const totalCount = relevantOrders.length
-
+  const totalCount = Object.values(counts).reduce((sum, count) => sum + count, 0)
   return {
     ...buildGranularityEnvelope(query.granularity, query.anchor),
-    items: VEHICLE_MATTER_TYPES.map((matter) => {
-      const count = counters.get(matter.id) ?? 0
-      return {
-        matterId: matter.id,
-        matterName: matter.name,
-        count,
-        percentage: totalCount > 0 ? Math.round((count / totalCount) * 1_000) / 10 : 0,
-      }
-    }),
+    items: VEHICLE_MATTER_TYPES.map((matter) => ({
+      matterId: matter.id,
+      matterName: matter.name,
+      count: counts[matter.id],
+      percentage: totalCount > 0 ? Math.round((counts[matter.id] / totalCount) * 1_000) / 10 : 0,
+    })),
     summary: { totalCount },
   }
 }
 
-/** 车辆平台真实进出时间分布。 */
+/** 车辆识别记录的真实进出时间分布。 */
 export async function getVehicleTimeStats(
   query: VehicleTimeStatsQuery,
   options?: { useMock?: boolean },
 ): Promise<VehicleTimeStatsData> {
-  if (resolveUseMock(options)) {
-    return buildVehicleTimeStatsMock(query.granularity, query.anchor)
-  }
+  if (resolveUseMock(options)) return buildVehicleTimeStatsMock(query.granularity, query.anchor)
 
-  const orders = await getVehicleOrders(query.granularity, query.anchor)
-  const bounds = toPeriodBounds(query.granularity, query.anchor)
+  const data = await fetchParkingStats(query.granularity, query.anchor)
   const items = buildTimeSlots(query.granularity, query.anchor)
-
-  orders.forEach((order) => {
-    if (
-      isWithinPeriod(order.ParkOrder_EnterTime, bounds) &&
-      getGateNo(order.ParkOrder_EnterPasswayName, '进')
-    ) {
-      const item = items[getTimeSlotIndex(order.ParkOrder_EnterTime!, query.granularity)]
-      if (item) item.enterCount += 1
-    }
-    if (
-      isWithinPeriod(order.ParkOrder_OutTime, bounds) &&
-      getGateNo(order.ParkOrder_OutPasswayName, '出')
-    ) {
-      const item = items[getTimeSlotIndex(order.ParkOrder_OutTime!, query.granularity)]
-      if (item) item.exitCount += 1
-    }
+  data.timeline.forEach((event) => {
+    const item = items[getTimeSlotIndex(event.captured_at, query.granularity)]
+    if (!item) return
+    if (event.direction === 'in') item.enterCount += 1
+    else item.exitCount += 1
   })
-
-  const enterTotal = items.reduce((sum, item) => sum + item.enterCount, 0)
-  const exitTotal = items.reduce((sum, item) => sum + item.exitCount, 0)
   const peak = items.reduce(
     (current, item) => {
       const total = item.enterCount + item.exitCount
@@ -339,13 +213,12 @@ export async function getVehicleTimeStats(
     },
     { label: items[0]?.slotLabel ?? '-', total: 0 },
   )
-
   return {
     ...buildGranularityEnvelope(query.granularity, query.anchor),
     items,
     summary: {
-      enterTotal,
-      exitTotal,
+      enterTotal: data.summary.entries,
+      exitTotal: data.summary.exits,
       peakSlotLabel: peak.label,
       peakTotal: peak.total,
     },

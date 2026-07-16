@@ -7,7 +7,7 @@ import type { CockpitDoorSignal } from '@/types/cockpit-door-signal'
 import type { DoorFlowDirection } from '@/types/door'
 
 const PERSONNEL_EVENT_URL = '/gateway/personnel/ControllerMonitor/GetNowInfo'
-const VEHICLE_ORDER_URL = '/gateway/vehicle/InParkRecord/GetParkOrderList'
+const VEHICLE_EVENT_URL = '/parking-api/public/events'
 
 type PersonnelEvent = {
   AddTime?: string | null
@@ -22,31 +22,19 @@ type PersonnelEventResponse = {
   Data?: PersonnelEvent[]
 }
 
-type VehicleOrder = {
-  ParkOrder_ID?: number | string | null
-  ParkOrder_No?: string | null
-  ParkOrder_EnterTime?: string | null
-  ParkOrder_EnterPasswayName?: string | null
-  ParkOrder_OutTime?: string | null
-  ParkOrder_OutPasswayName?: string | null
-}
-
 type VehicleOrderResponse = {
-  code?: number
-  msg?: string
-  data?: VehicleOrder[]
+  items?: VehicleEvent[]
 }
 
 type VehicleEvent = {
-  gateNo: string
-  doorId: string
-  direction: DoorFlowDirection
-  occurredAt: string
-  recordId: string
+  id: number
+  source_key: string
+  gate_no: number
+  direction: 'in' | 'out'
+  captured_at: string
 }
 
 const PERSONNEL_PASSAGE_REMARK = /智能识别|刷卡开门|按钮开门|远程开门|超级密码开门/
-const VEHICLE_PASSWAY_PATTERN = /^(7|8|9|10|11)号门(进|出)车道$/
 
 const normalizeOccurredAt = (value: string): string => {
   const parsed = new Date(`${value.trim().replace(' ', 'T')}+08:00`)
@@ -99,70 +87,31 @@ const getPersonnelSignals = async (
   })
 }
 
-const toVehicleEvent = (
-  order: VehicleOrder,
-  passwayName: string | null | undefined,
-  occurredAt: string | null | undefined,
-): VehicleEvent | null => {
-  if (!passwayName || !occurredAt || passwayName.startsWith('*')) return null
-
-  const match = passwayName.trim().match(VEHICLE_PASSWAY_PATTERN)
-  if (!match) return null
-
-  const gateNo = match[1]
-  const passwayDirection = match[2]
-  if (!gateNo || !passwayDirection) return null
-
-  const doorId = VEHICLE_GATE_SCENE_DOOR_IDS[gateNo]
-  if (!doorId) return null
-
-  return {
-    gateNo,
-    doorId,
-    direction: passwayDirection === '进' ? 'in' : 'out',
-    occurredAt,
-    recordId: String(order.ParkOrder_ID ?? order.ParkOrder_No ?? occurredAt),
-  }
-}
-
 const getVehicleSignals = async (
   validDoorIds: ReadonlySet<string>,
 ): Promise<CockpitDoorSignal[]> => {
-  const body = new URLSearchParams({
-    pageIndex: '1',
-    pageSize: '20',
-    conditionParam: '{}',
-  })
-  const { data } = await apiClient.post<VehicleOrderResponse>(VEHICLE_ORDER_URL, body, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  const { data } = await apiClient.get<VehicleOrderResponse>(VEHICLE_EVENT_URL, {
+    params: { limit: 50 },
     timeout: 8_000,
   })
-  if (!Array.isArray(data.data)) {
-    throw new Error(data.msg || '获取车辆子系统进出记录失败')
-  }
+  if (!Array.isArray(data.items)) throw new Error('获取车辆子系统进出记录失败')
 
   const latestByGate = new Map<string, VehicleEvent>()
-  data.data.forEach((order) => {
-    const events = [
-      toVehicleEvent(order, order.ParkOrder_EnterPasswayName, order.ParkOrder_EnterTime),
-      toVehicleEvent(order, order.ParkOrder_OutPasswayName, order.ParkOrder_OutTime),
-    ]
-    events.forEach((event) => {
-      if (!event || !validDoorIds.has(event.doorId)) return
-      const current = latestByGate.get(event.gateNo)
-      if (!current || event.occurredAt > current.occurredAt) {
-        latestByGate.set(event.gateNo, event)
-      }
-    })
+  data.items.forEach((event) => {
+    const gateNo = String(event.gate_no)
+    const doorId = VEHICLE_GATE_SCENE_DOOR_IDS[gateNo]
+    if (!doorId || !validDoorIds.has(doorId)) return
+    const current = latestByGate.get(gateNo)
+    if (!current || event.captured_at > current.captured_at) latestByGate.set(gateNo, event)
   })
 
-  return [...latestByGate.values()].map((event) => ({
-    sourceDoorId: `vehicle:${event.gateNo}`,
-    doorId: event.doorId,
+  return [...latestByGate.entries()].map(([gateNo, event]) => ({
+    sourceDoorId: `vehicle:${gateNo}`,
+    doorId: VEHICLE_GATE_SCENE_DOOR_IDS[gateNo]!,
     open: true,
     direction: event.direction,
-    occurredAt: normalizeOccurredAt(event.occurredAt),
-    version: `${event.recordId}|${event.direction}|${event.occurredAt}`,
+    occurredAt: normalizeOccurredAt(event.captured_at),
+    version: `${event.source_key}|${event.direction}|${event.captured_at}`,
     transient: true,
   }))
 }

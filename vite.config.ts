@@ -9,13 +9,10 @@ const devGatewayTarget = process.env.VITE_DEV_GATEWAY_TARGET ?? 'http://10.13.0.
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [
-    vue(),
-    vueDevTools(),
-  ],
+  plugins: [vue(), vueDevTools()],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
   server: {
@@ -25,6 +22,10 @@ export default defineConfig({
         changeOrigin: true,
       },
       '/relay-api': {
+        target: devGatewayTarget,
+        changeOrigin: true,
+      },
+      '/parking-api': {
         target: devGatewayTarget,
         changeOrigin: true,
       },
