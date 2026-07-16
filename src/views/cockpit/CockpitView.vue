@@ -14,6 +14,7 @@ import CockpitSidePanels from '@/components/cockpit/CockpitSidePanels.vue'
 import { getDashboardOverview, getDeviceStatusOptions } from '@/api/dashboard'
 import { getVehiclePlatformSummary } from '@/api/vehicle-access'
 import { useBackendHealth } from '@/composables/useBackendHealth'
+import { useNanjingWeather } from '@/composables/useNanjingWeather'
 import { useCockpitDoorSignals } from '@/composables/useCockpitDoorSignals'
 import { useGateAccessEvents } from '@/composables/useGateAccessEvents'
 import { useRelayDoorStatus } from '@/composables/useRelayDoorStatus'
@@ -41,6 +42,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 const { backendOnline, healthError } = useBackendHealth()
+const { weatherCode, weatherText } = useNanjingWeather()
 const router = useRouter()
 
 const SCENE_DOOR_IDS = extractSceneDoorIds(plantMapSvgRaw)
@@ -633,6 +635,8 @@ useGateAccessEvents({
         :date-text="dateText"
         :time-text="timeText"
         :week-text="weekText"
+        :weather-code="weatherCode"
+        :weather-text="weatherText"
         :backend-online="backendOnline"
         :backend-health-hint="healthError"
       />

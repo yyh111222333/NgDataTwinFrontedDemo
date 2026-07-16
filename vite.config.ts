@@ -29,6 +29,10 @@ export default defineConfig({
         target: devGatewayTarget,
         changeOrigin: true,
       },
+      '/api': {
+        target: devGatewayTarget,
+        changeOrigin: true,
+      },
       '/health': {
         target: devGatewayTarget,
         changeOrigin: true,

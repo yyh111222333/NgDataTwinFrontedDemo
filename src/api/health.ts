@@ -1,6 +1,6 @@
 import { apiClient } from '@/api/client'
 
-/** GET /health  HTTP 200 判定为在线 */
+/** Nginx将GET /health转发到FastAPI就绪检查。 */
 export async function checkHealth(): Promise<boolean> {
   try {
     const res = await apiClient.get<unknown>('/health', { timeout: 8_000 })

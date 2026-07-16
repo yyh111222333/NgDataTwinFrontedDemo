@@ -19,13 +19,16 @@ RUN npm run build
 FROM nginx:alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY nginx/default.conf /etc/nginx/templates/default.conf.template
+
+ENV NGINX_ENVSUBST_FILTER="^(PLATFORM_API_UPSTREAM|ACCESS_GATEWAY_UPSTREAM|CRANE_UPSTREAM|MONITOR_UPSTREAM|RELAY_UPSTREAM|SMART_MONITOR_UPSTREAM)$" \
+    PLATFORM_API_UPSTREAM="http://192.168.10.11:19080" \
+    ACCESS_GATEWAY_UPSTREAM="http://192.168.10.11:18050" \
+    CRANE_UPSTREAM="http://192.168.10.11:8000" \
+    MONITOR_UPSTREAM="http://192.168.10.11:9001" \
+    RELAY_UPSTREAM="http://192.168.10.11:18999" \
+    SMART_MONITOR_UPSTREAM="http://192.168.10.11:18051"
 
 EXPOSE 8083
 
 CMD ["nginx", "-g", "daemon off;"]
-
-# 运行  
-# docker stop ngdtdemo-frontend || true
-# docker rm ngdtdemo-frontend || true
-# docker run -d --name ngdtdemo-frontend -p 8083:8083 --restart always ngdtdemo-frontend:1.0.2

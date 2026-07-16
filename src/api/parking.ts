@@ -58,7 +58,10 @@ export async function syncParkingGate(gateId: string) {
 }
 
 export async function openParkingGate(gateId: string) {
-  const { data } = await client.post<{ success: boolean; message: string }>(`/gates/${gateId}/open`)
+  const { data } = await client.post<{ success: boolean; message: string }>(
+    `/gates/${gateId}/open`,
+    { confirmation: 'MANUAL_GATE_CONTROL' },
+  )
   return data
 }
 

@@ -1,19 +1,50 @@
 <!-- 顶栏组件：展示 Logo、标题、右侧时间与天气/服务状态。 -->
 <script setup lang="ts">
-withDefaults(
+import {
+  Cloud,
+  CloudDrizzle,
+  CloudFog,
+  CloudLightning,
+  CloudRain,
+  CloudSnow,
+  CloudSun,
+  Sun,
+} from '@lucide/vue'
+import { computed } from 'vue'
+
+const props = withDefaults(
   defineProps<{
     dateText: string
     timeText: string
     weekText: string
     weatherText?: string
+    weatherCode?: number | null
     /** null：首次检测前；true/false：GET /health 结果 */
     backendOnline?: boolean | null
     backendHealthHint?: string | null
   }>(),
   {
-    weatherText: '多云 22°C',
+    weatherText: '南京 --°C',
+    weatherCode: null,
   },
 )
+
+const weatherIcon = computed(() => {
+  const code = props.weatherCode
+  if (code === 0) return Sun
+  if (code === 1 || code === 2) return CloudSun
+  if (code === 3) return Cloud
+  if (code === 45 || code === 48) return CloudFog
+  if (code !== null && code >= 51 && code <= 57) return CloudDrizzle
+  if (code !== null && ((code >= 61 && code <= 67) || (code >= 80 && code <= 82))) {
+    return CloudRain
+  }
+  if (code !== null && ((code >= 71 && code <= 77) || code === 85 || code === 86)) {
+    return CloudSnow
+  }
+  if (code !== null && code >= 95) return CloudLightning
+  return Cloud
+})
 </script>
 
 <template>
@@ -45,16 +76,7 @@ withDefaults(
       </div>
       <div class="cockpit-header__meta">
         <div class="cockpit-header__weather">
-          <svg class="cockpit-header__weather-icon" viewBox="0 0 48 32" aria-hidden="true">
-            <circle cx="14" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2" />
-            <path
-              d="M6 22h30a8 8 0 0 0 0-16 10 10 0 0 0-19.2 3.2A7 7 0 0 0 6 22z"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linejoin="round"
-            />
-          </svg>
+          <component :is="weatherIcon" class="cockpit-header__weather-icon" aria-hidden="true" />
           <span>{{ weatherText }}</span>
         </div>
         <div class="cockpit-header__health">
@@ -244,8 +266,8 @@ withDefaults(
 }
 
 .cockpit-header__weather-icon {
-  width: 40px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   color: #8cefff;
   flex-shrink: 0;
 }

@@ -3,7 +3,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 
 const DEFAULT_POLL_MS = 30_000
 
-/** 应用内轮询后端健康检查（GET /health） */
+/** 轮询统一FastAPI就绪状态。 */
 export function useBackendHealth(pollMs: number = DEFAULT_POLL_MS) {
   const backendOnline = ref<boolean | null>(null)
   const healthError = ref<string | null>(null)

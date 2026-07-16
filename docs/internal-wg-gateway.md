@@ -1,47 +1,22 @@
-# Internal and WireGuard Gateway Notes
+# 内网与WireGuard网关
 
-This deployment keeps the cockpit usable from both the plant LAN and the WireGuard network by avoiding hard-coded browser-facing IP addresses.
+## 访问入口
 
-## Browser entry points
+- LAN大屏：`http://192.168.10.11:8083/cockpit`
+- WireGuard大屏：`http://10.13.0.8:8083/cockpit`
+- LAN FastAPI：`http://192.168.10.11:19080/docs`
+- WireGuard FastAPI：`http://10.13.0.8:19080/docs`
 
-- LAN cockpit: `http://192.168.10.11:8083/cockpit`
-- WireGuard cockpit: `http://10.13.0.8:8083/cockpit`
-- LAN monitoring dashboard: `http://192.168.10.11:9001/dashboard`
-- WireGuard monitoring dashboard: `http://10.13.0.8:9001/dashboard`
-- LAN vehicle backend mapping: `http://192.168.10.11:8888/`
-- WireGuard vehicle backend mapping: `http://10.13.0.8:8888/`
+## Nginx路径
 
-## Cockpit footer links
+- `/api/`、`/parking-api/`、`/health` -> `PLATFORM_API_UPSTREAM`
+- `/gateway/personnel/`、`/gateway/vehicle/` -> `ACCESS_GATEWAY_UPSTREAM`
+- `/gateway/crane/` -> `CRANE_UPSTREAM`
+- `/relay-api/` -> `RELAY_UPSTREAM`
+- `/monitor-api/` -> `SMART_MONITOR_UPSTREAM`
 
-The cockpit footer uses same-origin links where possible:
+所有上游地址在容器启动时由环境变量生成，不写入浏览器代码。LAN和WG用户只访问当前大屏
+地址下的同源路径，不会被跳转到另一个网段。
 
-- Personnel: `/gateway/personnel/`
-- Vehicle: `/gateway/vehicle/`
-- Crane: `/gateway/crane/`
-- Smart monitoring: current hostname on port `9001`, path `/dashboard`
-
-The monitoring dashboard is opened on port `9001` rather than under `/gateway/monitor/` because it serves root-relative `/static` assets and connects to video streams on port `9002`.
-
-## Nginx proxy map
-
-The frontend nginx config proxies these paths:
-
-- `/api` -> legacy endpoint retired (HTTP 404; cockpit panels use mock data)
-- `/health` -> `http://192.168.10.11:18050/_gateway/health`
-- `/relay-api/` -> `http://192.168.10.11:18999/api/`
-- `/gateway/personnel/` -> `http://192.168.10.11:18050/s/personnel/`
-- `/gateway/vehicle/` -> `http://192.168.10.11:18050/s/vehicle/`
-- `/gateway/crane/` -> `http://192.168.10.11:8000/`
-
-The config also rewrites upstream redirects from both `192.168.10.11` and `10.13.0.8` so a browser stays on the entry host it used.
-
-Gate animation signals are read directly from the personnel and vehicle gateway routes. Port `8084` is no longer part of the cockpit runtime.
-
-## Related runtime changes outside this repository
-
-These were applied on the server but belong to other runtime components:
-
-- The access-control gateway uses `http://192.168.10.10:8888` as the vehicle upstream. Keeping this hop on the plant LAN prevents vehicle statistics from timing out when the Linux WireGuard peer reconnects.
-- `win10-platform-proxy` maps `:8888` on `ngserver1-2404` to the Windows vehicle platform on `ngserver1-win10` for direct diagnostic access; the cockpit vehicle route does not depend on this extra hop.
-- The monitoring dashboard template was adjusted to build `18051` API URLs and `9002` WebSocket video URLs from the browser's current hostname.
-- The `cpe-watchdog` container was stopped so port `5000` is no longer published.
+FastAPI监听服务器全部网卡。Redis和PostgreSQL仅存在于后端Docker网络，没有宿主机端口映射。
+端口5000的 `cpe-watchdog` 服务独立运行，不属于本项目，部署前后均不得停止、重建或修改。

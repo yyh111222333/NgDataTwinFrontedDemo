@@ -14,8 +14,6 @@ import {
   DoorOpen,
   LayoutDashboard,
   ListChecks,
-  LogIn,
-  LogOut,
   Menu,
   Pencil,
   Plus,
@@ -25,22 +23,17 @@ import {
   ShieldCheck,
   Trash2,
   TriangleAlert,
-  UserRound,
   UsersRound,
   X,
 } from '@lucide/vue'
 import {
-  clearParkingToken,
   createRegisteredVehicle,
   deleteRegisteredVehicle,
   getParkingEvents,
   getParkingGates,
-  getParkingMe,
   getParkingSessions,
   getParkingStats,
-  getParkingToken,
   getRegisteredVehicles,
-  loginParking,
   openParkingGate,
   parkingImageUrl,
   syncParkingGate,
@@ -61,13 +54,7 @@ const router = useRouter()
 const activeTab = ref<TabId>('overview')
 const sidebarOpen = ref(false)
 const refreshing = ref(false)
-const loggedIn = ref(false)
-const currentUser = ref('')
-const loginOpen = ref(false)
-const loginBusy = ref(false)
-const loginError = ref('')
-const pendingTab = ref<TabId | null>(null)
-const loginForm = reactive({ username: 'admin', password: '' })
+const currentUser = '内网免登录'
 const toast = ref<{ text: string; kind: 'success' | 'error' } | null>(null)
 
 const stats = ref<ParkingStats | null>(null)
@@ -105,7 +92,7 @@ const navigation = [
   { id: 'overview' as const, label: '运行总览', icon: markRaw(LayoutDashboard) },
   { id: 'events' as const, label: '进出记录', icon: markRaw(ListChecks) },
   { id: 'onsite' as const, label: '场内车辆', icon: markRaw(CircleParking) },
-  { id: 'vehicles' as const, label: '车辆档案', icon: markRaw(UsersRound), admin: true },
+  { id: 'vehicles' as const, label: '车辆档案', icon: markRaw(UsersRound) },
   { id: 'gates' as const, label: '通道设备', icon: markRaw(RadioTower) },
 ]
 
@@ -207,7 +194,7 @@ const refreshCurrent = async (quiet = false) => {
     if (activeTab.value === 'overview') await loadOverview()
     if (activeTab.value === 'events') await loadEvents()
     if (activeTab.value === 'onsite') await loadSessions()
-    if (activeTab.value === 'vehicles' && loggedIn.value) await loadVehicles()
+    if (activeTab.value === 'vehicles') await loadVehicles()
     if (activeTab.value === 'gates') await loadGates()
     if (!quiet) notify('数据已刷新')
   } catch (error) {
@@ -217,54 +204,13 @@ const refreshCurrent = async (quiet = false) => {
   }
 }
 
-const selectTab = async (tab: TabId, admin = false) => {
+const selectTab = async (tab: TabId) => {
   sidebarOpen.value = false
-  if (admin && !loggedIn.value) {
-    pendingTab.value = tab
-    loginOpen.value = true
-    return
-  }
   activeTab.value = tab
   await refreshCurrent(true)
 }
 
-const submitLogin = async () => {
-  loginBusy.value = true
-  loginError.value = ''
-  try {
-    const result = await loginParking(loginForm.username.trim(), loginForm.password)
-    loggedIn.value = true
-    currentUser.value = result.username
-    loginForm.password = ''
-    loginOpen.value = false
-    notify('管理员登录成功')
-    if (pendingTab.value) {
-      const tab = pendingTab.value
-      pendingTab.value = null
-      await selectTab(tab)
-    }
-  } catch (error) {
-    loginError.value = formatError(error)
-  } finally {
-    loginBusy.value = false
-  }
-}
-
-const logout = () => {
-  clearParkingToken()
-  loggedIn.value = false
-  currentUser.value = ''
-  if (activeTab.value === 'vehicles') void selectTab('overview')
-  notify('已退出管理员模式')
-}
-
-const requestAdmin = () => {
-  loginOpen.value = true
-  loginError.value = ''
-}
-
 const syncGate = async (gate: ParkingGate) => {
-  if (!loggedIn.value) return requestAdmin()
   try {
     const result = await syncParkingGate(gate.id)
     notify(
@@ -277,7 +223,6 @@ const syncGate = async (gate: ParkingGate) => {
 }
 
 const openGate = async (gate: ParkingGate) => {
-  if (!loggedIn.value) return requestAdmin()
   if (!window.confirm(`确认远程开启“${gate.name}”道闸？`)) return
   try {
     await openParkingGate(gate.id)
@@ -355,15 +300,6 @@ const removeVehicle = async (vehicle: RegisteredVehicle) => {
 }
 
 onMounted(async () => {
-  if (getParkingToken()) {
-    try {
-      const me = await getParkingMe()
-      loggedIn.value = true
-      currentUser.value = me.username
-    } catch {
-      clearParkingToken()
-    }
-  }
   await refreshCurrent(true)
   timer = window.setInterval(() => void refreshCurrent(true), 5_000)
 })
@@ -393,11 +329,10 @@ onBeforeUnmount(() => {
           v-for="item in navigation"
           :key="item.id"
           :class="{ active: activeTab === item.id }"
-          @click="selectTab(item.id, item.admin)"
+          @click="selectTab(item.id)"
         >
           <component :is="item.icon" :size="19" />
           <span>{{ item.label }}</span>
-          <ShieldCheck v-if="item.admin && !loggedIn" class="admin-mark" :size="14" />
         </button>
       </nav>
 
@@ -435,15 +370,9 @@ onBeforeUnmount(() => {
           >
             <RefreshCw :size="19" :class="{ spinning: refreshing }" />
           </button>
-          <button v-if="!loggedIn" class="text-button" @click="requestAdmin">
-            <LogIn :size="17" /> 管理员登录
-          </button>
-          <div v-else class="user-menu">
-            <UserRound :size="18" />
+          <div class="user-menu">
+            <ShieldCheck :size="18" />
             <span>{{ currentUser }}</span>
-            <button class="icon-button" title="退出登录" @click="logout">
-              <LogOut :size="17" />
-            </button>
           </div>
         </div>
       </header>
@@ -904,32 +833,6 @@ onBeforeUnmount(() => {
 
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false"></div>
 
-    <div v-if="loginOpen" class="modal-backdrop" @click.self="loginOpen = false">
-      <form class="modal login-modal" @submit.prevent="submitLogin">
-        <div class="modal__head">
-          <div>
-            <h2>管理员登录</h2>
-            <p>管理车辆档案及通道控制</p>
-          </div>
-          <button type="button" class="icon-button" title="关闭" @click="loginOpen = false">
-            <X :size="20" />
-          </button>
-        </div>
-        <label>用户名<input v-model="loginForm.username" autocomplete="username" /></label>
-        <label
-          >密码<input
-            v-model="loginForm.password"
-            type="password"
-            autocomplete="current-password"
-            autofocus
-        /></label>
-        <p v-if="loginError" class="form-error">{{ loginError }}</p>
-        <button class="primary-button full-button" :disabled="loginBusy">
-          {{ loginBusy ? '登录中...' : '登录' }}
-        </button>
-      </form>
-    </div>
-
     <div v-if="vehicleModalOpen" class="modal-backdrop" @click.self="vehicleModalOpen = false">
       <form class="modal vehicle-modal" @submit.prevent="saveVehicle">
         <div class="modal__head">
@@ -1071,9 +974,6 @@ button {
 }
 .parking-nav span {
   flex: 1;
-}
-.admin-mark {
-  opacity: 0.65;
 }
 .parking-sidebar__footer {
   margin-top: auto;
@@ -1933,11 +1833,6 @@ textarea {
 .toggle-row input {
   width: 16px;
   height: 16px;
-}
-.form-error {
-  margin: -4px 0 12px;
-  color: #bd3d35;
-  font-size: 12px;
 }
 .modal__actions {
   display: flex;
