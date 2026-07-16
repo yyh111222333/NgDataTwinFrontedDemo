@@ -18,6 +18,7 @@ import { useCockpitDoorSignals } from '@/composables/useCockpitDoorSignals'
 import { useGateAccessEvents } from '@/composables/useGateAccessEvents'
 import { useRelayDoorStatus } from '@/composables/useRelayDoorStatus'
 import { DASHBOARD_DEVICE_REGIONS, DASHBOARD_DEVICE_TYPES } from '@/config/device-status-catalog'
+import { VEHICLE_GATE_SCENE_DOOR_IDS } from '@/config/cockpit-door-signal-map'
 import { buildDeviceStatusRecords } from '@/mocks/device-status-inventory'
 import { appendGateAccessEventMock, resetGateAccessEventsMock } from '@/mocks/gate-access-events'
 import { bottomMenus, middleStats, panels } from '@/config/cockpit'
@@ -495,11 +496,7 @@ const applyCockpitDoorSignals = (signals: CockpitDoorSignal[]) => {
   gateAccessError.value = null
 }
 
-const VEHICLE_BARRIER_DEMO_DOOR_IDS = [
-  'vehicleBarrier_07',
-  'vehicleBarrier_8',
-  'vehicleBarrier_10',
-] as const
+const VEHICLE_BARRIER_DEMO_DOOR_IDS = Object.values(VEHICLE_GATE_SCENE_DOOR_IDS)
 let barrierDemoOpenTimer: number | null = null
 let barrierDemoCloseTimer: number | null = null
 
