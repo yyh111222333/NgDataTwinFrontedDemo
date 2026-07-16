@@ -107,6 +107,12 @@ const onlineRate = computed(() => {
     : 0
 })
 
+const gateControlLabel = (gate: ParkingGate) => {
+  if (gate.capabilities.control_source === 'parking_lan') return '停车软件局域网接口'
+  if (gate.capabilities.control_source === 'device') return '设备直连接口'
+  return '仅采集'
+}
+
 let timer: number | undefined
 let toastTimer: number | undefined
 
@@ -801,6 +807,10 @@ onBeforeUnmount(() => {
                 <div>
                   <dt>设备类型</dt>
                   <dd>{{ gate.adapter === 'signalway' ? '信路威' : 'OEM IPNC' }}</dd>
+                </div>
+                <div>
+                  <dt>控制方式</dt>
+                  <dd>{{ gateControlLabel(gate) }}</dd>
                 </div>
                 <div>
                   <dt>最近识别</dt>

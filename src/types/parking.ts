@@ -12,7 +12,11 @@ export interface ParkingGate {
   last_online_at: string | null
   last_event_at: string | null
   last_error: string | null
-  capabilities: { manual_open: boolean }
+  capabilities: {
+    manual_open: boolean
+    barrier_status: boolean
+    control_source: 'parking_lan' | 'device' | 'none'
+  }
 }
 
 export interface ParkingEvent {
