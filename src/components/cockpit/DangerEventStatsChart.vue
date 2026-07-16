@@ -1,79 +1,82 @@
 <!-- 智慧监控 — 危险事件统计饼图 -->
 <script setup lang="ts">
-import { getDangerEventStats } from '@/api/smart-monitor'
-import { defaultDangerEventStatsAnchors } from '@/mocks/smart-monitor-danger-event-stats'
-import {
-  DANGER_EVENT_TYPES,
-  type DangerEventStatsData,
-  type SmartMonitorGranularity,
-} from '@/types/smart-monitor'
+import { getSmartMonitorDashboard } from '@/api/smart-monitor-dashboard'
+import type { SmartMonitorDashboardData } from '@/types/smart-monitor-dashboard'
 import { PieChart } from 'echarts/charts'
 import { LegendComponent, TooltipComponent } from 'echarts/components'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import VChart from 'vue-echarts'
 
 use([PieChart, TooltipComponent, LegendComponent, CanvasRenderer])
 
-const eventColorMap = Object.fromEntries(
-  DANGER_EVENT_TYPES.map((e) => [e.id, e.color]),
-) as Record<string, string>
+const EVENT_COLORS = [
+  '#5ce8ff',
+  '#4ade80',
+  '#e8c84a',
+  '#f59e0b',
+  '#f87171',
+  '#a78bfa',
+  '#38bdf8',
+  '#fb7185',
+] as const
 
-const granularity = ref<SmartMonitorGranularity>('day')
-const statsData = ref<DangerEventStatsData | null>(null)
+const dashboard = ref<SmartMonitorDashboardData | null>(null)
 const loading = ref(false)
 const loadError = ref<string | null>(null)
-
-const anchors = defaultDangerEventStatsAnchors()
-const resolveAnchor = (g: SmartMonitorGranularity) => anchors[g]
 
 const loadStats = async () => {
   loading.value = true
   loadError.value = null
   try {
-    statsData.value = await getDangerEventStats(
-      { granularity: granularity.value, anchor: resolveAnchor(granularity.value) },
-      { useMock: true },
-    )
-  } catch (e) {
-    loadError.value = e instanceof Error ? e.message : String(e)
-    statsData.value = null
+    dashboard.value = await getSmartMonitorDashboard({ force: true })
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : String(error)
   } finally {
     loading.value = false
   }
 }
 
-watch(granularity, () => {
-  void loadStats()
-})
+let refreshTimer: number | null = null
 
 onMounted(() => {
   void loadStats()
+  refreshTimer = window.setInterval(() => void loadStats(), 30_000)
 })
 
-const granularityOptions = computed(
-  () =>
-    statsData.value?.granularityOptions ?? [
-      { value: 'day' as const, label: '按日统计' },
-      { value: 'month' as const, label: '按月统计' },
-      { value: 'year' as const, label: '按年统计' },
-    ],
+onBeforeUnmount(() => {
+  if (refreshTimer !== null) window.clearInterval(refreshTimer)
+})
+
+const rankItems = computed(() => dashboard.value?.last7DayRankData ?? [])
+
+const rankedTotal = computed(() =>
+  rankItems.value.reduce((sum, item) => sum + item.count, 0),
 )
 
+const periodLabel = computed(() => {
+  const points = dashboard.value?.last7DayChartData ?? []
+  if (points.length < 2) return '最近7日'
+  const format = (timestamp: number) => {
+    const date = new Date(timestamp)
+    return `${date.getMonth() + 1}月${date.getDate()}日`
+  }
+  return `${format(points[0]!.x)} - ${format(points[points.length - 1]!.x)}`
+})
+
 const chartOption = computed(() => {
-  const data = statsData.value
-  if (!data?.items.length) {
+  if (!rankItems.value.length) {
     return { backgroundColor: 'transparent' }
   }
 
-  const seriesData = data.items.map((it) => ({
-    name: it.eventName,
-    value: it.count,
+  const seriesData = rankItems.value.map((item, index) => ({
+    name: item.name,
+    value: item.count,
     itemStyle: {
-      color: eventColorMap[it.eventId],
+      color: EVENT_COLORS[index % EVENT_COLORS.length],
       shadowBlur: 12,
-      shadowColor: `${eventColorMap[it.eventId]}66`,
+      shadowColor: `${EVENT_COLORS[index % EVENT_COLORS.length]}66`,
     },
   }))
 
@@ -98,17 +101,17 @@ const chartOption = computed(() => {
       top: 'middle',
       itemWidth: 8,
       itemHeight: 8,
-      itemGap: 5,
+      itemGap: 3,
       textStyle: {
         color: 'rgba(200, 238, 252, 0.82)',
-        fontSize: 10,
+        fontSize: 9,
       },
     },
     series: [
       {
         type: 'pie',
         radius: ['42%', '68%'],
-        center: ['36%', '50%'],
+        center: ['31%', '50%'],
         avoidLabelOverlap: true,
         padAngle: 2,
         itemStyle: {
@@ -138,37 +141,30 @@ const chartOption = computed(() => {
       <div class="danger-event-chart__period">
         <span class="danger-event-chart__period-dot" aria-hidden="true" />
         <span class="danger-event-chart__period-text">
-          {{ statsData?.periodLabel ?? '—' }}
+          {{ periodLabel }}
         </span>
       </div>
-      <div class="danger-event-chart__granularity" role="group" aria-label="统计粒度">
-        <button
-          v-for="opt in granularityOptions"
-          :key="opt.value"
-          type="button"
-          class="danger-event-chart__gran-btn"
-          :class="{ 'is-active': granularity === opt.value }"
-          :disabled="loading"
-          @click="granularity = opt.value"
-        >
-          {{ opt.label.replace('统计', '') }}
-        </button>
-      </div>
+      <span class="danger-event-chart__source">智慧监控子系统</span>
     </div>
 
     <div class="danger-event-chart__main">
-      <p v-if="loadError" class="danger-event-chart__state is-error">{{ loadError }}</p>
-      <p v-else-if="loading && !statsData" class="danger-event-chart__state">加载中…</p>
+      <p v-if="loadError && !dashboard" class="danger-event-chart__state is-error">
+        {{ loadError }}
+      </p>
+      <p v-else-if="loading && !dashboard" class="danger-event-chart__state">加载中…</p>
       <VChart v-else class="danger-event-chart__echart" :option="chartOption" autoresize />
-      <div v-if="loading && statsData" class="danger-event-chart__loading-mask" aria-hidden="true" />
+      <div v-if="loading && dashboard" class="danger-event-chart__loading-mask" aria-hidden="true" />
     </div>
 
-    <div v-if="statsData" class="danger-event-chart__summary">
+    <div v-if="dashboard" class="danger-event-chart__summary">
       <span class="danger-event-chart__metric">
-        <em>总事件</em>{{ statsData.summary.totalCount }}
+        <em>近7日</em>{{ rankedTotal }}
+      </span>
+      <span class="danger-event-chart__metric is-today">
+        <em>今日告警</em>{{ dashboard.todayAlarmTotalCount }}
       </span>
       <span class="danger-event-chart__metric is-risk">
-        <em>高风险</em>{{ statsData.summary.highRiskCount }}
+        <em>待处理</em>{{ dashboard.todayAlarmUnHandleCount }}
       </span>
     </div>
   </div>
@@ -218,48 +214,10 @@ const chartOption = computed(() => {
   text-overflow: ellipsis;
 }
 
-.danger-event-chart__granularity {
-  display: inline-flex;
-  gap: 3px;
-  padding: 2px;
-  border-radius: 4px;
-  border: 1px solid rgba(48, 220, 255, 0.16);
-  background: rgba(4, 12, 22, 0.55);
+.danger-event-chart__source {
   flex-shrink: 0;
-}
-
-.danger-event-chart__gran-btn {
-  padding: 4px 8px;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  background: transparent;
-  color: rgba(160, 200, 220, 0.75);
+  color: rgba(85, 239, 150, 0.75);
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  transition:
-    color 0.2s ease,
-    background 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.danger-event-chart__gran-btn:hover:not(:disabled) {
-  color: rgba(230, 248, 255, 0.95);
-  background: rgba(48, 200, 255, 0.08);
-}
-
-.danger-event-chart__gran-btn.is-active {
-  color: #f0fcff;
-  border-color: rgba(48, 200, 255, 0.35);
-  background: linear-gradient(180deg, rgba(92, 232, 255, 0.22) 0%, rgba(48, 200, 255, 0.06) 100%);
-  box-shadow: 0 0 10px rgba(48, 200, 255, 0.12);
-}
-
-.danger-event-chart__gran-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .danger-event-chart__main {
@@ -318,5 +276,9 @@ const chartOption = computed(() => {
 
 .danger-event-chart__metric.is-risk {
   color: rgba(248, 113, 113, 0.95);
+}
+
+.danger-event-chart__metric.is-today {
+  color: rgba(85, 239, 150, 0.95);
 }
 </style>

@@ -1,8 +1,8 @@
 <!-- 智慧监控概况：危险事件 / 设备在位统计 / 存储状况 -->
 <script setup lang="ts">
-import CockpitDeviceStatus from '@/components/cockpit/CockpitDeviceStatus.vue'
 import CockpitPanelTabs from '@/components/cockpit/CockpitPanelTabs.vue'
 import DangerEventStatsChart from '@/components/cockpit/DangerEventStatsChart.vue'
+import SmartMonitorStreamStatus from '@/components/cockpit/SmartMonitorStreamStatus.vue'
 import StorageStatusChart from '@/components/cockpit/StorageStatusChart.vue'
 import { smartMonitorTabs } from '@/config/cockpit'
 import type { DeviceStatusOption, DashboardDeviceRecord } from '@/types/dashboard'
@@ -15,7 +15,7 @@ defineProps<{
   selectedDeviceType: string
 }>()
 
-const emit = defineEmits<{
+defineEmits<{
   (e: 'update:selectedRegionId', value: string): void
   (e: 'update:selectedDeviceType', value: string): void
   (e: 'region-change', value: string): void
@@ -27,18 +27,9 @@ const emit = defineEmits<{
   <CockpitPanelTabs :tabs="smartMonitorTabs" ariaLabel="智慧监控概况">
     <template #default="{ activeTab }">
       <DangerEventStatsChart v-if="activeTab === 'danger'" />
-      <CockpitDeviceStatus
+      <SmartMonitorStreamStatus
         v-else-if="activeTab === 'device'"
         class="smart-overview__device"
-        :records="deviceRecords"
-        :region-options="regionOptions"
-        :device-options="deviceOptions"
-        :selected-region-id="selectedRegionId"
-        :selected-device-type="selectedDeviceType"
-        @update:selected-region-id="emit('update:selectedRegionId', $event)"
-        @update:selected-device-type="emit('update:selectedDeviceType', $event)"
-        @region-change="emit('region-change', $event)"
-        @device-change="emit('device-change', $event)"
       />
       <StorageStatusChart v-else-if="activeTab === 'storage'" />
       <div v-else class="smart-overview__placeholder">
