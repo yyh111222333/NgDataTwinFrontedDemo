@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
@@ -101,6 +102,29 @@ class ParkingDatabase:
 
                 CREATE INDEX IF NOT EXISTS idx_sessions_status ON parking_sessions(status, entry_time DESC);
                 CREATE INDEX IF NOT EXISTS idx_sessions_plate ON parking_sessions(plate, entry_time DESC);
+
+                CREATE TABLE IF NOT EXISTS appointments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    appointment_type TEXT NOT NULL CHECK(appointment_type IN ('person', 'vehicle')),
+                    subject_name TEXT NOT NULL,
+                    phone TEXT NOT NULL DEFAULT '',
+                    plate TEXT NOT NULL DEFAULT '',
+                    reason TEXT NOT NULL DEFAULT '',
+                    department_no TEXT NOT NULL DEFAULT '',
+                    device_nos TEXT NOT NULL DEFAULT '[]',
+                    valid_from TEXT NOT NULL,
+                    valid_until TEXT NOT NULL,
+                    external_id TEXT NOT NULL DEFAULT '',
+                    sync_status TEXT NOT NULL DEFAULT 'pending',
+                    sync_message TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_appointments_created
+                    ON appointments(created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_appointments_plate
+                    ON appointments(plate, created_at DESC);
                 """
             )
 
@@ -214,6 +238,15 @@ class ParkingDatabase:
     @staticmethod
     def _rows(rows: Iterable[sqlite3.Row]) -> list[dict[str, Any]]:
         return [dict(row) for row in rows]
+
+    @staticmethod
+    def _appointment_row(row: sqlite3.Row) -> dict[str, Any]:
+        item = dict(row)
+        try:
+            item["device_nos"] = json.loads(item["device_nos"])
+        except (TypeError, json.JSONDecodeError):
+            item["device_nos"] = []
+        return item
 
     def list_gates(self) -> list[dict[str, Any]]:
         with self.connect() as db:
@@ -421,3 +454,76 @@ class ParkingDatabase:
     def delete_vehicle(self, vehicle_id: int) -> bool:
         with self.connect() as db:
             return db.execute("DELETE FROM vehicles WHERE id=?", (vehicle_id,)).rowcount > 0
+
+    def upsert_appointment_vehicle(self, vehicle: dict[str, Any]) -> dict[str, Any]:
+        plate = vehicle["plate"].strip().upper()
+        with self.connect() as db:
+            row = db.execute("SELECT id FROM vehicles WHERE plate=?", (plate,)).fetchone()
+        payload = {
+            "plate": plate,
+            "owner": vehicle.get("owner", "").strip(),
+            "department": vehicle.get("department", "预约车辆").strip(),
+            "phone": vehicle.get("phone", "").strip(),
+            "vehicle_type": "预约车辆",
+            "valid_from": vehicle.get("valid_from"),
+            "valid_until": vehicle.get("valid_until"),
+            "enabled": True,
+            "note": f"进场预约：{vehicle.get('reason', '')}"[:200],
+        }
+        return self.save_vehicle(payload, int(row["id"]) if row else None)
+
+    def create_appointment(self, appointment: dict[str, Any]) -> dict[str, Any]:
+        timestamp = now_text()
+        with self.connect() as db:
+            cursor = db.execute(
+                """
+                INSERT INTO appointments (
+                    appointment_type, subject_name, phone, plate, reason,
+                    department_no, device_nos, valid_from, valid_until,
+                    sync_status, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+                """,
+                (
+                    appointment["appointment_type"],
+                    appointment["subject_name"].strip(),
+                    appointment.get("phone", "").strip(),
+                    appointment.get("plate", "").strip().upper(),
+                    appointment.get("reason", "").strip(),
+                    appointment.get("department_no", "").strip(),
+                    json.dumps(appointment.get("device_nos", []), ensure_ascii=False),
+                    appointment["valid_from"],
+                    appointment["valid_until"],
+                    timestamp,
+                    timestamp,
+                ),
+            )
+            row = db.execute(
+                "SELECT * FROM appointments WHERE id=?", (cursor.lastrowid,)
+            ).fetchone()
+            return self._appointment_row(row)
+
+    def update_appointment_result(
+        self, appointment_id: int, status: str, message: str, external_id: str = ""
+    ) -> dict[str, Any]:
+        with self.connect() as db:
+            db.execute(
+                """
+                UPDATE appointments
+                SET sync_status=?, sync_message=?, external_id=?, updated_at=?
+                WHERE id=?
+                """,
+                (status, message[:500], external_id, now_text(), appointment_id),
+            )
+            row = db.execute(
+                "SELECT * FROM appointments WHERE id=?", (appointment_id,)
+            ).fetchone()
+            if row is None:
+                raise KeyError(appointment_id)
+            return self._appointment_row(row)
+
+    def list_appointments(self, limit: int = 20) -> list[dict[str, Any]]:
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT * FROM appointments ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+        return [self._appointment_row(row) for row in rows]

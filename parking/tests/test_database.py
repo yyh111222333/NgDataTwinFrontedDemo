@@ -57,6 +57,36 @@ class ParkingDatabaseTest(unittest.TestCase):
         self.assertEqual(stats["channels"][0]["gate_no"], 7)
         self.assertEqual(stats["channels"][0]["enter_count"], 1)
 
+    def test_vehicle_appointment_updates_whitelist_and_status(self):
+        appointment = self.database.create_appointment(
+            {
+                "appointment_type": "vehicle",
+                "subject_name": "测试访客",
+                "phone": "13800000000",
+                "plate": "苏A88888",
+                "reason": "设备维护",
+                "valid_from": "2026-07-16 10:00:00",
+                "valid_until": "2026-07-16 18:00:00",
+            }
+        )
+        vehicle = self.database.upsert_appointment_vehicle(
+            {
+                "plate": "苏A88888",
+                "owner": "测试访客",
+                "phone": "13800000000",
+                "reason": "设备维护",
+                "valid_from": "2026-07-16 10:00:00",
+                "valid_until": "2026-07-16 18:00:00",
+            }
+        )
+        result = self.database.update_appointment_result(
+            appointment["id"], "active", "已写入停车场预约白名单", str(vehicle["id"])
+        )
+
+        self.assertEqual(result["sync_status"], "active")
+        self.assertEqual(self.database.list_vehicles("苏A88888")[0]["vehicle_type"], "预约车辆")
+        self.assertEqual(self.database.list_appointments(1)[0]["plate"], "苏A88888")
+
 
 if __name__ == "__main__":
     unittest.main()

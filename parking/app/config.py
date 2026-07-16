@@ -42,6 +42,13 @@ class Settings:
     initial_lookback_seconds: int
     regular_lookback_seconds: int
     parking_capacity: int
+    k30_portal_base_url: str
+    k30_openapi_base_url: str
+    k30_company_no: str
+    k30_default_department_no: str
+    k30_app_secret: str
+    k30_aes_key: str
+    k30_aes_iv: str
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -57,4 +64,17 @@ class Settings:
             initial_lookback_seconds=int(os.getenv("PARKING_INITIAL_LOOKBACK", "172800")),
             regular_lookback_seconds=int(os.getenv("PARKING_REGULAR_LOOKBACK", "600")),
             parking_capacity=int(os.getenv("PARKING_CAPACITY", "500")),
+            k30_portal_base_url=os.getenv(
+                "K30_PORTAL_BASE_URL", "http://192.168.10.11:18050/s/personnel"
+            ).rstrip("/"),
+            k30_openapi_base_url=os.getenv(
+                "K30_OPENAPI_BASE_URL", "http://10.13.0.6:8050"
+            ).rstrip("/"),
+            k30_company_no=os.getenv("K30_COMPANY_NO", "1780491840740664"),
+            k30_default_department_no=os.getenv(
+                "K30_DEFAULT_DEPARTMENT_NO", "1782540952786460"
+            ),
+            k30_app_secret=os.getenv("K30_APP_SECRET", ""),
+            k30_aes_key=os.getenv("K30_AES_KEY", ""),
+            k30_aes_iv=os.getenv("K30_AES_IV", ""),
         )

@@ -9,12 +9,13 @@ from typing import Annotated, Literal
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .auth import TokenManager, require_user, require_user_or_query_token
 from .cameras import CameraError
 from .config import GATES, Settings
 from .database import ParkingDatabase
+from .k30 import K30Client, K30Error
 from .service import ParkingService
 
 
@@ -35,9 +36,53 @@ class VehicleInput(BaseModel):
     note: str = Field(default="", max_length=200)
 
 
+def normalize_appointment_datetime(value: str) -> str:
+    normalized = value.strip().replace("T", " ")
+    if len(normalized) == 16:
+        normalized += ":00"
+    try:
+        return datetime.strptime(normalized, "%Y-%m-%d %H:%M:%S").strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+    except ValueError as exc:
+        raise ValueError("许可时间格式应为 yyyy-MM-dd HH:mm:ss") from exc
+
+
+class AppointmentPeriod(BaseModel):
+    valid_from: str
+    valid_until: str
+
+    @model_validator(mode="after")
+    def validate_period(self):
+        self.valid_from = normalize_appointment_datetime(self.valid_from)
+        self.valid_until = normalize_appointment_datetime(self.valid_until)
+        if self.valid_until <= self.valid_from:
+            raise ValueError("许可结束时间必须晚于开始时间")
+        return self
+
+
+class PersonAppointmentInput(AppointmentPeriod):
+    name: str = Field(min_length=1, max_length=50)
+    phone: str = Field(min_length=6, max_length=30)
+    reason: str = Field(min_length=1, max_length=100)
+    department_no: str = Field(default="", max_length=50)
+    device_nos: list[str] = Field(default_factory=list, max_length=30)
+    id_card: str = Field(default="", max_length=50)
+    sex: Literal[0, 1, 2] = 0
+    photo: str = Field(min_length=20, max_length=8_000_000)
+
+
+class VehicleAppointmentInput(AppointmentPeriod):
+    name: str = Field(min_length=1, max_length=50)
+    phone: str = Field(min_length=6, max_length=30)
+    plate: str = Field(min_length=3, max_length=16)
+    reason: str = Field(min_length=1, max_length=100)
+
+
 settings = Settings.from_env()
 database = ParkingDatabase(settings.data_dir / "parking.sqlite3")
 parking_service = ParkingService(settings, database)
+k30_client = K30Client(settings)
 
 
 @asynccontextmanager
@@ -49,6 +94,7 @@ async def lifespan(app: FastAPI):
     app.state.settings = settings
     app.state.database = database
     app.state.parking_service = parking_service
+    app.state.k30_client = k30_client
     app.state.token_manager = TokenManager(settings)
     await parking_service.start()
     try:
@@ -113,6 +159,85 @@ def public_gates():
     for item in items:
         item["capabilities"] = parking_service.gate_capabilities(item["id"])
     return {"items": items, "total": len(items)}
+
+
+@app.get("/api/public/appointments/options")
+async def public_appointment_options():
+    try:
+        return await k30_client.get_options()
+    except K30Error as exc:
+        return {
+            "available": False,
+            "mode": k30_client.mode,
+            "departments": [],
+            "devices": [],
+            "default_department_no": settings.k30_default_department_no,
+            "message": str(exc),
+        }
+
+
+@app.get("/api/public/appointments")
+def public_appointments(limit: Annotated[int, Query(ge=1, le=50)] = 10):
+    items = database.list_appointments(limit)
+    return {"items": items, "total": len(items)}
+
+
+@app.post("/api/public/appointments/person", status_code=201)
+async def create_person_appointment(payload: PersonAppointmentInput):
+    values = payload.model_dump()
+    appointment = database.create_appointment(
+        {
+            "appointment_type": "person",
+            "subject_name": payload.name,
+            "phone": payload.phone,
+            "reason": payload.reason,
+            "department_no": payload.department_no or settings.k30_default_department_no,
+            "device_nos": payload.device_nos,
+            "valid_from": payload.valid_from,
+            "valid_until": payload.valid_until,
+        }
+    )
+    try:
+        result = await k30_client.create_person(values)
+    except K30Error as exc:
+        database.update_appointment_result(appointment["id"], "failed", str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return database.update_appointment_result(
+        appointment["id"], "active", result["message"], result["external_id"]
+    )
+
+
+@app.post("/api/public/appointments/vehicle", status_code=201)
+def create_vehicle_appointment(payload: VehicleAppointmentInput):
+    appointment = database.create_appointment(
+        {
+            "appointment_type": "vehicle",
+            "subject_name": payload.name,
+            "phone": payload.phone,
+            "plate": payload.plate,
+            "reason": payload.reason,
+            "valid_from": payload.valid_from,
+            "valid_until": payload.valid_until,
+        }
+    )
+    try:
+        vehicle = database.upsert_appointment_vehicle(
+            {
+                "plate": payload.plate,
+                "owner": payload.name,
+                "department": "预约车辆",
+                "phone": payload.phone,
+                "reason": payload.reason,
+                "valid_from": payload.valid_from,
+                "valid_until": payload.valid_until,
+            }
+        )
+    except sqlite3.DatabaseError as exc:
+        database.update_appointment_result(appointment["id"], "failed", str(exc))
+        raise HTTPException(status_code=500, detail="车辆预约保存失败") from exc
+    return database.update_appointment_result(
+        appointment["id"], "active", "已写入停车场预约白名单", str(vehicle["id"])
+    )
 
 
 @app.get("/api/public/records")
