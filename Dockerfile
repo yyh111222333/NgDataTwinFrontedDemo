@@ -1,4 +1,4 @@
-# 构建前端 docker build -t ngdtdemo-frontend:1.0.2 .
+# 构建前端 docker build -t ngdtdemo-frontend:3.0.0 .
 
 FROM node:20-alpine AS builder
 
