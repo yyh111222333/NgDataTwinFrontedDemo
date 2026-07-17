@@ -104,6 +104,11 @@ export async function updateRegisteredVehicle(id: number, payload: VehiclePayloa
   return data
 }
 
+export async function syncRegisteredVehicle(id: number) {
+  const { data } = await client.post<RegisteredVehicle>(`/vehicles/${id}/sync`)
+  return data
+}
+
 export async function deleteRegisteredVehicle(id: number) {
   await client.delete(`/vehicles/${id}`)
 }

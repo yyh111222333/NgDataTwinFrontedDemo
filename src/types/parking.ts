@@ -1,4 +1,5 @@
 export type ParkingDirection = 'in' | 'out'
+export type VehiclePlateColor = 'auto' | 'blue' | 'yellow' | 'green'
 
 export interface ParkingGate {
   id: string
@@ -55,17 +56,33 @@ export interface RegisteredVehicle {
   department: string
   phone: string
   vehicle_type: string
+  plate_color: VehiclePlateColor
   valid_from: string | null
   valid_until: string | null
   enabled: number
   note: string
+  parking_record_no: string
+  parking_owner_no: string
+  parking_sync_status: 'pending' | 'active' | 'failed' | 'disabled'
+  parking_sync_message: string
+  parking_result_id: string
+  parking_synced_at: string | null
   created_at: string
   updated_at: string
 }
 
 export type VehiclePayload = Omit<
   RegisteredVehicle,
-  'id' | 'created_at' | 'updated_at' | 'enabled'
+  | 'id'
+  | 'created_at'
+  | 'updated_at'
+  | 'enabled'
+  | 'parking_record_no'
+  | 'parking_owner_no'
+  | 'parking_sync_status'
+  | 'parking_sync_message'
+  | 'parking_result_id'
+  | 'parking_synced_at'
 > & { enabled: boolean }
 
 export interface ParkingStats {

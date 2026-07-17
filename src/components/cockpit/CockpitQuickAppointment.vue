@@ -48,6 +48,7 @@ const vehicleForm = reactive({
   name: '',
   phone: '',
   plate: '',
+  plateColor: 'auto' as 'auto' | 'blue' | 'yellow' | 'green',
   reason: '',
   validFrom: initialPeriod.validFrom,
   validUntil: initialPeriod.validUntil,
@@ -220,6 +221,7 @@ async function submitVehicle() {
       name: vehicleForm.name.trim(),
       phone: vehicleForm.phone.trim(),
       plate: vehicleForm.plate.trim().toUpperCase(),
+      plate_color: vehicleForm.plateColor,
       reason: vehicleForm.reason.trim(),
       valid_from: vehicleForm.validFrom,
       valid_until: vehicleForm.validUntil,
@@ -228,10 +230,12 @@ async function submitVehicle() {
     vehicleForm.name = ''
     vehicleForm.phone = ''
     vehicleForm.plate = ''
+    vehicleForm.plateColor = 'auto'
     vehicleForm.reason = ''
     await loadRecent()
   } catch (error) {
     notify(errorMessage(error), 'error')
+    await loadRecent()
   } finally {
     vehicleSubmitting.value = false
   }
@@ -332,10 +336,21 @@ onMounted(() => {
           <span><Phone :size="11" />电话</span>
           <input v-model="vehicleForm.phone" maxlength="30" inputmode="tel" autocomplete="off" />
         </label>
-        <label class="quick-appt__field">
-          <span><CarFront :size="11" />车牌号</span>
-          <input v-model="vehicleForm.plate" maxlength="16" autocomplete="off" />
-        </label>
+        <div class="quick-appt__plate-row">
+          <label class="quick-appt__field">
+            <span><CarFront :size="11" />车牌号</span>
+            <input v-model="vehicleForm.plate" maxlength="16" autocomplete="off" />
+          </label>
+          <label class="quick-appt__field">
+            <span>颜色</span>
+            <select v-model="vehicleForm.plateColor">
+              <option value="auto">自动</option>
+              <option value="blue">蓝牌</option>
+              <option value="yellow">黄牌</option>
+              <option value="green">绿牌</option>
+            </select>
+          </label>
+        </div>
         <label class="quick-appt__field">
           <span><FileText :size="11" />进厂事由</span>
           <input v-model="vehicleForm.reason" maxlength="100" autocomplete="off" />
@@ -361,7 +376,7 @@ onMounted(() => {
           :disabled="vehicleSubmitting"
         >
           <LoaderCircle v-if="vehicleSubmitting" class="quick-appt__spin" :size="13" />
-          <span>{{ vehicleSubmitting ? '保存中' : '提交车辆预约' }}</span>
+          <span>{{ vehicleSubmitting ? '下发中' : '下发车辆预约' }}</span>
         </button>
       </form>
     </div>
@@ -455,6 +470,13 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 1px;
+  min-width: 0;
+}
+
+.quick-appt__plate-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(48px, 0.55fr);
+  gap: 3px;
   min-width: 0;
 }
 

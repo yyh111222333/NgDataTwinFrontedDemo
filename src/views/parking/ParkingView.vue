@@ -36,6 +36,7 @@ import {
   getRegisteredVehicles,
   openParkingGate,
   parkingImageUrl,
+  syncRegisteredVehicle,
   syncParkingGate,
   updateRegisteredVehicle,
 } from '@/api/parking'
@@ -74,6 +75,7 @@ const vehicleQuery = ref('')
 const vehicleModalOpen = ref(false)
 const editingVehicleId = ref<number | null>(null)
 const vehicleSaving = ref(false)
+const syncingVehicleId = ref<number | null>(null)
 
 const emptyVehicle = (): VehiclePayload => ({
   plate: '',
@@ -81,6 +83,7 @@ const emptyVehicle = (): VehiclePayload => ({
   department: '',
   phone: '',
   vehicle_type: '内部车辆',
+  plate_color: 'auto',
   valid_from: null,
   valid_until: null,
   enabled: true,
@@ -112,6 +115,14 @@ const gateControlLabel = (gate: ParkingGate) => {
   if (gate.capabilities.control_source === 'device') return '设备直连接口'
   return '仅采集'
 }
+
+const vehicleSyncLabel = (vehicle: RegisteredVehicle) =>
+  ({
+    active: '已同步',
+    failed: '同步失败',
+    pending: '待同步',
+    disabled: '未下发',
+  })[vehicle.parking_sync_status] ?? '未知'
 
 let timer: number | undefined
 let toastTimer: number | undefined
@@ -265,8 +276,9 @@ const openVehicleForm = (vehicle?: RegisteredVehicle) => {
           department: vehicle.department,
           phone: vehicle.phone,
           vehicle_type: vehicle.vehicle_type,
-          valid_from: vehicle.valid_from,
-          valid_until: vehicle.valid_until,
+          plate_color: vehicle.plate_color,
+          valid_from: vehicle.valid_from?.slice(0, 10) ?? null,
+          valid_until: vehicle.valid_until?.slice(0, 10) ?? null,
           enabled: Boolean(vehicle.enabled),
           note: vehicle.note,
         }
@@ -279,16 +291,20 @@ const saveVehicle = async () => {
   if (!vehicleForm.plate.trim()) return notify('请输入车牌号码', 'error')
   vehicleSaving.value = true
   try {
+    const editing = Boolean(editingVehicleId.value)
+    let saved: RegisteredVehicle
     if (editingVehicleId.value) {
-      await updateRegisteredVehicle(editingVehicleId.value, { ...vehicleForm })
+      saved = await updateRegisteredVehicle(editingVehicleId.value, { ...vehicleForm })
     } else {
-      await createRegisteredVehicle({ ...vehicleForm })
+      saved = await createRegisteredVehicle({ ...vehicleForm })
     }
     vehicleModalOpen.value = false
-    notify(editingVehicleId.value ? '车辆档案已更新' : '车辆档案已创建')
+    notify(saved.parking_sync_message || (editing ? '车辆档案已更新' : '车辆档案已创建'))
     await loadVehicles()
   } catch (error) {
     notify(formatError(error), 'error')
+    vehicleModalOpen.value = false
+    await loadVehicles()
   } finally {
     vehicleSaving.value = false
   }
@@ -298,10 +314,24 @@ const removeVehicle = async (vehicle: RegisteredVehicle) => {
   if (!window.confirm(`确认删除车辆“${vehicle.plate}”？`)) return
   try {
     await deleteRegisteredVehicle(vehicle.id)
-    notify('车辆档案已删除')
+    notify('已从停车软件移除并删除车辆档案')
     await loadVehicles()
   } catch (error) {
     notify(formatError(error), 'error')
+  }
+}
+
+const retryVehicleSync = async (vehicle: RegisteredVehicle) => {
+  syncingVehicleId.value = vehicle.id
+  try {
+    const saved = await syncRegisteredVehicle(vehicle.id)
+    notify(saved.parking_sync_message || '车辆白名单已重新同步')
+    await loadVehicles()
+  } catch (error) {
+    notify(formatError(error), 'error')
+    await loadVehicles()
+  } finally {
+    syncingVehicleId.value = null
   }
 }
 
@@ -727,6 +757,7 @@ onBeforeUnmount(() => {
                     <th>车辆类型</th>
                     <th>有效期</th>
                     <th>状态</th>
+                    <th>停车软件</th>
                     <th>操作</th>
                   </tr>
                 </thead>
@@ -746,7 +777,24 @@ onBeforeUnmount(() => {
                       }}</span>
                     </td>
                     <td>
+                      <span
+                        :class="['session-status', `sync-${vehicle.parking_sync_status}`]"
+                        :title="vehicle.parking_sync_message"
+                      >
+                        {{ vehicleSyncLabel(vehicle) }}
+                      </span>
+                    </td>
+                    <td>
                       <div class="table-actions">
+                        <button
+                          v-if="['failed', 'pending'].includes(vehicle.parking_sync_status)"
+                          class="icon-button"
+                          title="重新同步停车软件"
+                          :disabled="syncingVehicleId === vehicle.id"
+                          @click="retryVehicleSync(vehicle)"
+                        >
+                          <RefreshCw :size="16" />
+                        </button>
                         <button
                           class="icon-button"
                           title="编辑车辆"
@@ -848,7 +896,7 @@ onBeforeUnmount(() => {
         <div class="modal__head">
           <div>
             <h2>{{ editingVehicleId ? '编辑车辆' : '新增车辆' }}</h2>
-            <p>车辆档案与通行识别自动关联</p>
+            <p>停车软件车辆白名单</p>
           </div>
           <button type="button" class="icon-button" title="关闭" @click="vehicleModalOpen = false">
             <X :size="20" />
@@ -856,6 +904,13 @@ onBeforeUnmount(() => {
         </div>
         <div class="form-grid">
           <label>车牌号码<input v-model="vehicleForm.plate" required maxlength="16" /></label
+          ><label
+            >车牌颜色<select v-model="vehicleForm.plate_color">
+              <option value="auto">自动判断</option>
+              <option value="blue">蓝牌</option>
+              <option value="yellow">黄牌</option>
+              <option value="green">绿牌</option>
+            </select></label
           ><label
             >车辆类型<select v-model="vehicleForm.vehicle_type">
               <option>内部车辆</option>
@@ -1634,6 +1689,22 @@ td small {
   background: #e0f2ea;
 }
 .session-status.closed {
+  color: #68756f;
+  background: #e9edeb;
+}
+.session-status.sync-active {
+  color: #117350;
+  background: #e0f2ea;
+}
+.session-status.sync-failed {
+  color: #a93b3b;
+  background: #fbe8e8;
+}
+.session-status.sync-pending {
+  color: #8a6215;
+  background: #fbf1d8;
+}
+.session-status.sync-disabled {
   color: #68756f;
   background: #e9edeb;
 }

@@ -55,6 +55,7 @@ export interface VehicleAppointmentPayload {
   name: string
   phone: string
   plate: string
+  plate_color: 'auto' | 'blue' | 'yellow' | 'green'
   reason: string
   valid_from: string
   valid_until: string
