@@ -18,6 +18,7 @@ import { useNanjingWeather } from '@/composables/useNanjingWeather'
 import { useCockpitDoorSignals } from '@/composables/useCockpitDoorSignals'
 import { useGateAccessEvents } from '@/composables/useGateAccessEvents'
 import { useRelayDoorStatus } from '@/composables/useRelayDoorStatus'
+import { useTrainBarrierStatus } from '@/composables/useTrainBarrierStatus'
 import { DASHBOARD_DEVICE_REGIONS, DASHBOARD_DEVICE_TYPES } from '@/config/device-status-catalog'
 import { VEHICLE_GATE_SCENE_DOOR_IDS } from '@/config/cockpit-door-signal-map'
 import { buildDeviceStatusRecords } from '@/mocks/device-status-inventory'
@@ -31,6 +32,7 @@ import type { DoorFlowDirection } from '@/types/door'
 import type { CockpitDoorSignal } from '@/types/cockpit-door-signal'
 import type { GateAccessEvent } from '@/types/gate-access'
 import type { RelayDoorStatusSnapshot } from '@/types/relay-door-status'
+import type { TrainBarrierStatusSnapshot } from '@/types/train-barrier'
 import type {
   DashboardDeviceRecord,
   DashboardOverviewData,
@@ -467,6 +469,29 @@ const applyRelayDoorStatus = (snapshot: RelayDoorStatusSnapshot) => {
   appendRecentGateEvents(snapshot.events)
 }
 
+const mergeTrainBarrierSnapshot = (
+  state: DashboardViewState,
+  snapshot: TrainBarrierStatusSnapshot,
+): DashboardViewState => ({
+  ...state,
+  railStatus: snapshot.railStatus,
+  doorStates: {
+    ...state.doorStates,
+    ...snapshot.doorStates,
+  },
+  doorFlowDirections: {
+    ...state.doorFlowDirections,
+    ...snapshot.doorFlowDirections,
+  },
+})
+
+const applyTrainBarrierStatus = (snapshot: TrainBarrierStatusSnapshot) => {
+  currentState.value = mergeTrainBarrierSnapshot(currentState.value, snapshot)
+  if (dataSource.value === 'mock') {
+    mockState.value = mergeTrainBarrierSnapshot(mockState.value, snapshot)
+  }
+}
+
 const applyCockpitDoorSignals = (signals: CockpitDoorSignal[]) => {
   if (signals.length === 0) return
 
@@ -595,6 +620,15 @@ useRelayDoorStatus({
   enabled: computed(() => true),
   validDoorIds: VALID_DOOR_IDS,
   onUpdate: applyRelayDoorStatus,
+  onError: (error) => {
+    apiError.value = error instanceof Error ? error.message : String(error)
+  },
+})
+
+useTrainBarrierStatus({
+  enabled: computed(() => true),
+  validDoorIds: VALID_DOOR_IDS,
+  onUpdate: applyTrainBarrierStatus,
   onError: (error) => {
     apiError.value = error instanceof Error ? error.message : String(error)
   },

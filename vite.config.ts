@@ -25,6 +25,10 @@ export default defineConfig({
         target: devGatewayTarget,
         changeOrigin: true,
       },
+      '/train-barrier-api': {
+        target: devGatewayTarget,
+        changeOrigin: true,
+      },
       '/parking-api': {
         target: devGatewayTarget,
         changeOrigin: true,

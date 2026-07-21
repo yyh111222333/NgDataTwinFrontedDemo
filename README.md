@@ -32,6 +32,7 @@ flowchart LR
     N -->|"/gateway/crane/"| C["行车子系统 :8000"]
     N -->|"/gateway/monitor/"| M["智慧监控 :9001"]
     N -->|"/relay-api/"| R["继电器服务 :18999"]
+    N -->|"/train-barrier-api/"| T["火车栏杆服务 :5001"]
 ```
 
 本仓库只包含前端和 Nginx 配置。FastAPI、PostgreSQL、Redis、停车软件适配器
@@ -97,6 +98,7 @@ ACCESS_GATEWAY_UPSTREAM=http://192.168.10.11:18050
 CRANE_UPSTREAM=http://192.168.10.11:8000
 MONITOR_UPSTREAM=http://192.168.10.11:9001
 RELAY_UPSTREAM=http://192.168.10.11:18999
+TRAIN_BARRIER_UPSTREAM=http://192.168.10.11:5001
 SMART_MONITOR_UPSTREAM=http://192.168.10.11:18051
 
 # 本地开发代理目标，生产Docker不使用此项
@@ -115,6 +117,7 @@ VITE_DEV_GATEWAY_TARGET=http://10.13.0.8:8083
 | `CRANE_UPSTREAM`          | `:8000`       | 行车子系统                                 |
 | `MONITOR_UPSTREAM`        | `:9001`       | 智慧监控页面                               |
 | `RELAY_UPSTREAM`          | `:18999`      | 道闸和继电器服务                           |
+| `TRAIN_BARRIER_UPSTREAM`  | `:5001`       | 火车栏杆状态及两侧道闸动画                 |
 | `SMART_MONITOR_UPSTREAM`  | `:18051`      | 智慧监控概况数据                           |
 | `VITE_DEV_GATEWAY_TARGET` | WG大屏地址    | 本地 Vite 开发代理目标                     |
 

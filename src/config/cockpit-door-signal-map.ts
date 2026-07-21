@@ -7,6 +7,12 @@ export const VEHICLE_GATE_SCENE_DOOR_IDS: Readonly<Record<string, string>> = {
   '11': 'vehicleBarrier_11',
 }
 
+/** 火车栏杆控制器设备地址到场景两侧道闸 ID。 */
+export const TRAIN_BARRIER_SCENE_DOOR_IDS: Readonly<Record<string, string>> = {
+  '192.168.51.103': 'trainBarrier_01',
+  '192.168.51.105': 'trainBarrier_02',
+}
+
 /** 人员平台设备序列号到全高闸场景 ID。 */
 export const PERSONNEL_DEVICE_SCENE_DOOR_IDS: Readonly<Record<string, string>> = {
   // 一跨右侧竖排：从上到下依次为 51、52、53 网段。
