@@ -2,7 +2,6 @@
 import { computed, markRaw, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
-import Papa from 'papaparse'
 import {
   ArrowDownToLine,
   ArrowLeft,
@@ -43,6 +42,7 @@ import {
   syncParkingGate,
   updateRegisteredVehicle,
 } from '@/api/parking'
+import { downloadVehicleImportTemplate, parseVehicleImportFile } from '@/utils/vehicle-import'
 import type {
   ParkingBarrierStatus,
   ParkingEvent,
@@ -376,78 +376,6 @@ const retryVehicleSync = async (vehicle: RegisteredVehicle) => {
   }
 }
 
-const importHeaderAliases: Record<string, keyof VehiclePayload> = {
-  车牌号码: 'plate',
-  车牌: 'plate',
-  plate: 'plate',
-  车主: 'owner',
-  车主姓名: 'owner',
-  owner: 'owner',
-  所属部门: 'department',
-  部门: 'department',
-  department: 'department',
-  联系电话: 'phone',
-  手机号: 'phone',
-  phone: 'phone',
-  车辆类型: 'vehicle_type',
-  vehicletype: 'vehicle_type',
-  vehicle_type: 'vehicle_type',
-  车牌颜色: 'plate_color',
-  platecolor: 'plate_color',
-  plate_color: 'plate_color',
-  生效日期: 'valid_from',
-  有效期开始: 'valid_from',
-  validfrom: 'valid_from',
-  valid_from: 'valid_from',
-  失效日期: 'valid_until',
-  有效期结束: 'valid_until',
-  validuntil: 'valid_until',
-  valid_until: 'valid_until',
-  启用: 'enabled',
-  enabled: 'enabled',
-  备注: 'note',
-  note: 'note',
-}
-
-const normalizeImportHeader = (header: string) => header.trim().replace(/\s+/g, '').toLowerCase()
-
-const importedVehicle = (row: Record<string, string>): VehiclePayload => {
-  const plateColorText = String(row.plate_color ?? '')
-    .trim()
-    .toLowerCase()
-  const plateColorMap: Record<string, VehiclePayload['plate_color']> = {
-    blue: 'blue',
-    蓝: 'blue',
-    蓝牌: 'blue',
-    yellow: 'yellow',
-    黄: 'yellow',
-    黄牌: 'yellow',
-    green: 'green',
-    绿: 'green',
-    绿牌: 'green',
-    auto: 'auto',
-    自动: 'auto',
-    自动判断: 'auto',
-  }
-  const enabledText = String(row.enabled ?? '')
-    .trim()
-    .toLowerCase()
-  return {
-    plate: String(row.plate ?? '')
-      .replace(/\s+/g, '')
-      .toUpperCase(),
-    owner: String(row.owner ?? '').trim(),
-    department: String(row.department ?? '').trim(),
-    phone: String(row.phone ?? '').trim(),
-    vehicle_type: String(row.vehicle_type ?? '').trim() || '内部车辆',
-    plate_color: plateColorMap[plateColorText] ?? 'auto',
-    valid_from: String(row.valid_from ?? '').trim() || null,
-    valid_until: String(row.valid_until ?? '').trim() || null,
-    enabled: !['0', 'false', '否', '停用', '禁用'].includes(enabledText),
-    note: String(row.note ?? '').trim(),
-  }
-}
-
 const openVehicleImport = () => {
   vehicleImportFileName.value = ''
   vehicleImportRows.value = []
@@ -462,82 +390,19 @@ const toggleVehicleImportDuplicateMode = (event: Event) => {
   vehicleImportDuplicateMode.value = (event.target as HTMLInputElement).checked ? 'update' : 'skip'
 }
 
-const parseVehicleImportFile = (event: Event) => {
+const handleVehicleImportFile = async (event: Event) => {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   target.value = ''
   if (!file) return
   vehicleImportFileName.value = file.name
   vehicleImportResult.value = null
-
-  if (file.name.toLowerCase().endsWith('.txt')) {
-    void file
-      .text()
-      .then((text) => {
-        const rows = text
-          .split(/\r?\n/)
-          .map((plate) => plate.trim())
-          .filter(Boolean)
-          .map((plate) => importedVehicle({ plate }))
-        if (rows.length > 500) return notify('单次最多导入500辆车', 'error')
-        vehicleImportRows.value = rows
-      })
-      .catch((error: unknown) => {
-        notify(`文件读取失败：${formatError(error)}`, 'error')
-        vehicleImportRows.value = []
-      })
-    return
+  try {
+    vehicleImportRows.value = await parseVehicleImportFile(file)
+  } catch (error) {
+    notify(`文件读取失败：${formatError(error)}`, 'error')
+    vehicleImportRows.value = []
   }
-
-  Papa.parse<Record<string, string>>(file, {
-    header: true,
-    skipEmptyLines: 'greedy',
-    transformHeader: (header) => {
-      const normalized = normalizeImportHeader(header)
-      return importHeaderAliases[normalized] ?? header.trim()
-    },
-    complete: ({ data, errors }) => {
-      if (errors.length > 0) {
-        notify(`文件解析失败：${errors[0]?.message ?? 'CSV格式错误'}`, 'error')
-        vehicleImportRows.value = []
-        return
-      }
-      if (data.length > 500) {
-        notify('单次最多导入500辆车', 'error')
-        vehicleImportRows.value = []
-        return
-      }
-      vehicleImportRows.value = data.map(importedVehicle)
-    },
-    error: (error) => {
-      notify(`文件读取失败：${error.message}`, 'error')
-      vehicleImportRows.value = []
-    },
-  })
-}
-
-const downloadVehicleImportTemplate = () => {
-  const headers = [
-    '车牌号码',
-    '车主姓名',
-    '所属部门',
-    '联系电话',
-    '车辆类型',
-    '车牌颜色',
-    '生效日期',
-    '失效日期',
-    '启用',
-    '备注',
-  ]
-  const blob = new Blob([`\ufeff${headers.join(',')}\r\n`], {
-    type: 'text/csv;charset=utf-8',
-  })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = '车辆批量导入模板.csv'
-  anchor.click()
-  URL.revokeObjectURL(url)
 }
 
 const submitVehicleImport = async () => {
@@ -1202,7 +1067,7 @@ onBeforeUnmount(() => {
             class="visually-hidden"
             type="file"
             accept=".csv,.txt,text/csv,text/plain"
-            @change="parseVehicleImportFile"
+            @change="handleVehicleImportFile"
           />
         </div>
 

@@ -2,6 +2,8 @@
 import axios from 'axios'
 import { computed, onMounted, reactive, ref } from 'vue'
 import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
   Camera,
   CarFront,
   CircleCheck,
@@ -12,6 +14,7 @@ import {
   Phone,
   RefreshCw,
   UserRound,
+  X,
 } from '@lucide/vue'
 import {
   createPersonAppointment,
@@ -20,6 +23,9 @@ import {
   getRecentAppointments,
 } from '@/api/appointments'
 import type { AppointmentOptions, AppointmentRecord } from '@/types/appointment'
+import { importRegisteredVehicles } from '@/api/parking'
+import type { VehicleImportResult, VehiclePayload } from '@/types/parking'
+import { downloadVehicleImportTemplate, parseVehicleImportFile } from '@/utils/vehicle-import'
 
 const pad = (value: number) => String(value).padStart(2, '0')
 
@@ -61,6 +67,13 @@ const vehicleSubmitting = ref(false)
 const faceInput = ref<HTMLInputElement | null>(null)
 const faceFileName = ref('')
 const recent = ref<AppointmentRecord[]>([])
+const vehicleImportOpen = ref(false)
+const vehicleImporting = ref(false)
+const vehicleImportInput = ref<HTMLInputElement | null>(null)
+const vehicleImportFileName = ref('')
+const vehicleImportRows = ref<VehiclePayload[]>([])
+const vehicleImportResult = ref<VehicleImportResult | null>(null)
+const vehicleImportDuplicateMode = ref<'skip' | 'update'>('skip')
 const toast = ref<{ text: string; kind: 'success' | 'error' } | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -241,6 +254,62 @@ async function submitVehicle() {
   }
 }
 
+function openVehicleImport() {
+  vehicleImportFileName.value = ''
+  vehicleImportRows.value = []
+  vehicleImportResult.value = null
+  vehicleImportDuplicateMode.value = 'skip'
+  vehicleImportOpen.value = true
+}
+
+function selectVehicleImportFile() {
+  vehicleImportInput.value?.click()
+}
+
+function toggleVehicleImportDuplicateMode(event: Event) {
+  vehicleImportDuplicateMode.value = (event.target as HTMLInputElement).checked ? 'update' : 'skip'
+}
+
+async function handleVehicleImportFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+
+  vehicleImportFileName.value = file.name
+  vehicleImportResult.value = null
+  try {
+    vehicleImportRows.value = await parseVehicleImportFile(file)
+  } catch (error) {
+    vehicleImportRows.value = []
+    notify(`文件读取失败：${errorMessage(error)}`, 'error')
+  }
+}
+
+async function submitVehicleImport() {
+  if (vehicleImportRows.value.length === 0) {
+    notify('请选择有效的CSV或TXT文件', 'error')
+    return
+  }
+
+  vehicleImporting.value = true
+  try {
+    vehicleImportResult.value = await importRegisteredVehicles(
+      vehicleImportRows.value,
+      vehicleImportDuplicateMode.value,
+    )
+    const result = vehicleImportResult.value
+    notify(
+      `导入完成：新增${result.created}，更新${result.updated}，跳过${result.skipped}，失败${result.failed}`,
+      result.failed > 0 ? 'error' : 'success',
+    )
+  } catch (error) {
+    notify(errorMessage(error), 'error')
+  } finally {
+    vehicleImporting.value = false
+  }
+}
+
 onMounted(() => {
   void loadOptions()
   void loadRecent()
@@ -326,6 +395,15 @@ onMounted(() => {
         <header class="quick-appt__panel-head">
           <CarFront :size="13" aria-hidden="true" />
           <h4>车辆进厂预约</h4>
+          <button
+            type="button"
+            class="quick-appt__batch-trigger"
+            title="批量导入7至11号门车辆白名单"
+            @click="openVehicleImport"
+          >
+            <ArrowUpFromLine :size="11" />
+            <span>批量</span>
+          </button>
         </header>
 
         <label class="quick-appt__field">
@@ -399,6 +477,139 @@ onMounted(() => {
     <div v-if="toast" class="quick-appt__toast" :class="`quick-appt__toast--${toast.kind}`">
       {{ toast.text }}
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="vehicleImportOpen"
+        class="quick-appt-import__backdrop"
+        @click.self="vehicleImportOpen = false"
+      >
+        <section class="quick-appt-import" role="dialog" aria-modal="true">
+          <header class="quick-appt-import__head">
+            <div>
+              <h3>批量导入车辆</h3>
+              <p>统一车辆白名单 · 7至11号门</p>
+            </div>
+            <button type="button" title="关闭" @click="vehicleImportOpen = false">
+              <X :size="18" />
+            </button>
+          </header>
+
+          <div class="quick-appt-import__file-row">
+            <button type="button" class="is-primary" @click="selectVehicleImportFile">
+              <ArrowUpFromLine :size="15" />
+              选择文件
+            </button>
+            <button type="button" @click="downloadVehicleImportTemplate">
+              <ArrowDownToLine :size="15" />
+              下载模板
+            </button>
+            <span>{{ vehicleImportFileName || '支持 CSV / TXT，单次最多500辆' }}</span>
+            <input
+              ref="vehicleImportInput"
+              class="quick-appt-import__file"
+              type="file"
+              accept=".csv,.txt,text/csv,text/plain"
+              @change="handleVehicleImportFile"
+            />
+          </div>
+
+          <label class="quick-appt-import__toggle">
+            <input
+              :checked="vehicleImportDuplicateMode === 'update'"
+              type="checkbox"
+              @change="toggleVehicleImportDuplicateMode"
+            />
+            <span>覆盖已有车牌档案</span>
+          </label>
+
+          <div class="quick-appt-import__summary">
+            <template v-if="vehicleImportResult">
+              <div>
+                <span>新增</span><strong>{{ vehicleImportResult.created }}</strong>
+              </div>
+              <div>
+                <span>更新</span><strong>{{ vehicleImportResult.updated }}</strong>
+              </div>
+              <div>
+                <span>跳过</span><strong>{{ vehicleImportResult.skipped }}</strong>
+              </div>
+              <div :class="{ 'has-error': vehicleImportResult.failed > 0 }">
+                <span>失败</span><strong>{{ vehicleImportResult.failed }}</strong>
+              </div>
+            </template>
+            <div v-else class="is-full">
+              <span>待导入</span><strong>{{ vehicleImportRows.length }}</strong>
+            </div>
+          </div>
+
+          <div class="quick-appt-import__table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>行号</th>
+                  <th>车牌号码</th>
+                  <th>车主</th>
+                  <th>所属部门</th>
+                  <th>{{ vehicleImportResult ? '导入结果' : '车辆类型' }}</th>
+                </tr>
+              </thead>
+              <tbody v-if="vehicleImportResult">
+                <tr v-for="item in vehicleImportResult.items" :key="`${item.row}-${item.plate}`">
+                  <td>{{ item.row }}</td>
+                  <td>
+                    <strong>{{ item.plate || '-' }}</strong>
+                  </td>
+                  <td colspan="2">{{ item.message }}</td>
+                  <td>
+                    {{
+                      {
+                        created: '已新增',
+                        updated: '已更新',
+                        skipped: '已跳过',
+                        failed: '失败',
+                      }[item.status]
+                    }}
+                  </td>
+                </tr>
+              </tbody>
+              <tbody v-else-if="vehicleImportRows.length > 0">
+                <tr v-for="(item, index) in vehicleImportRows.slice(0, 20)" :key="index">
+                  <td>{{ index + 1 }}</td>
+                  <td>
+                    <strong>{{ item.plate || '-' }}</strong>
+                  </td>
+                  <td>{{ item.owner || '-' }}</td>
+                  <td>{{ item.department || '-' }}</td>
+                  <td>{{ item.vehicle_type }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div
+              v-if="!vehicleImportResult && vehicleImportRows.length === 0"
+              class="quick-appt-import__empty"
+            >
+              <ArrowUpFromLine :size="26" />
+              <span>请选择导入文件</span>
+            </div>
+          </div>
+
+          <footer class="quick-appt-import__actions">
+            <button type="button" @click="vehicleImportOpen = false">关闭</button>
+            <button
+              v-if="!vehicleImportResult"
+              type="button"
+              class="is-primary"
+              :disabled="vehicleImporting || vehicleImportRows.length === 0"
+              @click="submitVehicleImport"
+            >
+              <LoaderCircle v-if="vehicleImporting" class="quick-appt__spin" :size="14" />
+              {{ vehicleImporting ? '导入中' : '开始导入' }}
+            </button>
+          </footer>
+        </section>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -464,6 +675,27 @@ onMounted(() => {
 .quick-appt__link--online {
   border-color: rgba(63, 214, 155, 0.4);
   color: #76e7b9;
+}
+
+.quick-appt__batch-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 16px;
+  margin-left: auto;
+  padding: 0 4px;
+  border: 1px solid rgba(92, 232, 255, 0.34);
+  border-radius: 3px;
+  background: rgba(8, 40, 61, 0.74);
+  color: #8cefff;
+  font-size: 8px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.quick-appt__batch-trigger:hover {
+  border-color: rgba(92, 232, 255, 0.62);
+  background: rgba(14, 55, 82, 0.9);
 }
 
 .quick-appt__field {
@@ -667,6 +899,225 @@ onMounted(() => {
 
 .quick-appt__spin {
   animation: quick-appt-spin 0.8s linear infinite;
+}
+
+.quick-appt-import__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 7, 15, 0.78);
+  backdrop-filter: blur(3px);
+}
+
+.quick-appt-import {
+  width: min(760px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+  border: 1px solid rgba(73, 221, 255, 0.42);
+  border-radius: 6px;
+  background: #071421;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.52);
+  color: #e8fbff;
+  font-family: 'Microsoft YaHei', sans-serif;
+  letter-spacing: 0;
+}
+
+.quick-appt-import button,
+.quick-appt-import input {
+  font: inherit;
+  letter-spacing: 0;
+}
+
+.quick-appt-import__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(73, 221, 255, 0.18);
+}
+
+.quick-appt-import__head h3,
+.quick-appt-import__head p {
+  margin: 0;
+}
+
+.quick-appt-import__head h3 {
+  font-size: 18px;
+}
+
+.quick-appt-import__head p {
+  margin-top: 4px;
+  color: rgba(185, 225, 237, 0.68);
+  font-size: 12px;
+}
+
+.quick-appt-import__head button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid rgba(73, 221, 255, 0.22);
+  border-radius: 4px;
+  background: rgba(6, 25, 40, 0.8);
+  color: #a8efff;
+  cursor: pointer;
+}
+
+.quick-appt-import__file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 18px 10px;
+}
+
+.quick-appt-import__file-row button,
+.quick-appt-import__actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 0 13px;
+  border: 1px solid rgba(73, 221, 255, 0.3);
+  border-radius: 4px;
+  background: rgba(7, 30, 47, 0.86);
+  color: #c8f5ff;
+  cursor: pointer;
+}
+
+.quick-appt-import button.is-primary {
+  border-color: rgba(55, 224, 169, 0.5);
+  background: #0f7557;
+  color: #fff;
+}
+
+.quick-appt-import button:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.quick-appt-import__file-row > span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: rgba(185, 225, 237, 0.72);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quick-appt-import__file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.quick-appt-import__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 18px 12px;
+  color: rgba(205, 237, 247, 0.82);
+  font-size: 12px;
+}
+
+.quick-appt-import__summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 18px 12px;
+  overflow: hidden;
+  border: 1px solid rgba(73, 221, 255, 0.18);
+  border-radius: 4px;
+  background: rgba(73, 221, 255, 0.12);
+  gap: 1px;
+}
+
+.quick-appt-import__summary div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 0 13px;
+  background: #0a1b2a;
+}
+
+.quick-appt-import__summary .is-full {
+  grid-column: 1 / -1;
+}
+
+.quick-appt-import__summary span {
+  color: rgba(185, 225, 237, 0.68);
+  font-size: 12px;
+}
+
+.quick-appt-import__summary strong {
+  font-size: 18px;
+}
+
+.quick-appt-import__summary .has-error strong {
+  color: #ff9696;
+}
+
+.quick-appt-import__table-wrap {
+  position: relative;
+  min-height: 230px;
+  max-height: min(360px, calc(100vh - 330px));
+  margin: 0 18px;
+  overflow: auto;
+  border: 1px solid rgba(73, 221, 255, 0.18);
+  border-radius: 4px;
+}
+
+.quick-appt-import table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.quick-appt-import th,
+.quick-appt-import td {
+  height: 38px;
+  padding: 0 10px;
+  border-bottom: 1px solid rgba(73, 221, 255, 0.1);
+  text-align: left;
+}
+
+.quick-appt-import th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #0c2132;
+  color: rgba(185, 225, 237, 0.76);
+  font-weight: 500;
+}
+
+.quick-appt-import td {
+  color: rgba(225, 248, 255, 0.9);
+}
+
+.quick-appt-import__empty {
+  position: absolute;
+  inset: 38px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  color: rgba(185, 225, 237, 0.5);
+  font-size: 12px;
+}
+
+.quick-appt-import__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 18px 16px;
 }
 
 @keyframes quick-appt-spin {
