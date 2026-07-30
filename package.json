@@ -19,6 +19,7 @@
     "autofit.js": "^3.2.8",
     "axios": "^1.13.2",
     "echarts": "^6.0.0",
+    "papaparse": "^5.5.4",
     "pinia": "^3.0.4",
     "vue": "^3.5.30",
     "vue-echarts": "^8.0.1",
@@ -27,6 +28,7 @@
   "devDependencies": {
     "@tsconfig/node24": "^24.0.4",
     "@types/node": "^24.12.0",
+    "@types/papaparse": "^5.5.2",
     "@vitejs/plugin-vue": "^6.0.4",
     "@vue/eslint-config-typescript": "14.7.0",
     "@vue/tsconfig": "^0.9.0",

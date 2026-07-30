@@ -2,6 +2,7 @@
 import { computed, markRaw, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import Papa from 'papaparse'
 import {
   ArrowDownToLine,
   ArrowLeft,
@@ -30,10 +31,12 @@ import {
   createRegisteredVehicle,
   deleteRegisteredVehicle,
   getParkingEvents,
+  getParkingGateBarrier,
   getParkingGates,
   getParkingSessions,
   getParkingStats,
   getRegisteredVehicles,
+  importRegisteredVehicles,
   openParkingGate,
   parkingImageUrl,
   syncRegisteredVehicle,
@@ -41,11 +44,13 @@ import {
   updateRegisteredVehicle,
 } from '@/api/parking'
 import type {
+  ParkingBarrierStatus,
   ParkingEvent,
   ParkingGate,
   ParkingSession,
   ParkingStats,
   RegisteredVehicle,
+  VehicleImportResult,
   VehiclePayload,
 } from '@/types/parking'
 
@@ -66,6 +71,7 @@ const eventTotal = ref(0)
 const sessions = ref<ParkingSession[]>([])
 const vehicles = ref<RegisteredVehicle[]>([])
 const failedImages = ref(new Set<number>())
+const gateBarrierStatuses = ref<Record<string, ParkingBarrierStatus>>({})
 
 const eventPage = ref(1)
 const eventPageSize = 30
@@ -76,6 +82,13 @@ const vehicleModalOpen = ref(false)
 const editingVehicleId = ref<number | null>(null)
 const vehicleSaving = ref(false)
 const syncingVehicleId = ref<number | null>(null)
+const vehicleImportOpen = ref(false)
+const vehicleImporting = ref(false)
+const vehicleImportFileName = ref('')
+const vehicleImportRows = ref<VehiclePayload[]>([])
+const vehicleImportResult = ref<VehicleImportResult | null>(null)
+const vehicleImportDuplicateMode = ref<'skip' | 'update'>('skip')
+const vehicleImportInput = ref<HTMLInputElement | null>(null)
 
 const emptyVehicle = (): VehiclePayload => ({
   plate: '',
@@ -111,9 +124,17 @@ const onlineRate = computed(() => {
 })
 
 const gateControlLabel = (gate: ParkingGate) => {
-  if (gate.capabilities.control_source === 'parking_lan') return '停车软件局域网接口'
+  if (gate.capabilities.control_source === 'parking_lan') return '岗亭软件控制'
   if (gate.capabilities.control_source === 'device') return '设备直连接口'
   return '仅采集'
+}
+
+const barrierStatusLabel = (gateId: string) => {
+  const status = gateBarrierStatuses.value[gateId]
+  if (!status) return '读取中'
+  if (!status.camera_online) return '控制设备离线'
+  if (status.hold_open) return '常开'
+  return status.barrier === 'open' ? '已开启' : status.barrier === 'closed' ? '已关闭' : '状态未知'
 }
 
 const vehicleSyncLabel = (vehicle: RegisteredVehicle) =>
@@ -126,6 +147,7 @@ const vehicleSyncLabel = (vehicle: RegisteredVehicle) =>
 
 let timer: number | undefined
 let toastTimer: number | undefined
+let barrierLoadedAt = 0
 
 const formatError = (error: unknown) => {
   if (axios.isAxiosError(error)) {
@@ -202,6 +224,24 @@ const loadVehicles = async () => {
 
 const loadGates = async () => {
   gates.value = (await getParkingGates()).items
+  await loadGateBarrierStatuses()
+}
+
+const loadGateBarrierStatuses = async (force = false) => {
+  if (!force && Date.now() - barrierLoadedAt < 15_000) return
+  const controlled = gates.value.filter(
+    (gate) =>
+      gate.capabilities.control_source === 'parking_lan' && gate.capabilities.barrier_status,
+  )
+  const settled = await Promise.allSettled(
+    controlled.map(async (gate) => [gate.id, await getParkingGateBarrier(gate.id)] as const),
+  )
+  const next = { ...gateBarrierStatuses.value }
+  for (const result of settled) {
+    if (result.status === 'fulfilled') next[result.value[0]] = result.value[1]
+  }
+  gateBarrierStatuses.value = next
+  barrierLoadedAt = Date.now()
 }
 
 const refreshCurrent = async (quiet = false) => {
@@ -244,6 +284,7 @@ const openGate = async (gate: ParkingGate) => {
   try {
     await openParkingGate(gate.id)
     notify(`${gate.name}开闸命令已发送`)
+    window.setTimeout(() => void loadGateBarrierStatuses(true), 1_000)
   } catch (error) {
     notify(formatError(error), 'error')
   }
@@ -332,6 +373,191 @@ const retryVehicleSync = async (vehicle: RegisteredVehicle) => {
     await loadVehicles()
   } finally {
     syncingVehicleId.value = null
+  }
+}
+
+const importHeaderAliases: Record<string, keyof VehiclePayload> = {
+  车牌号码: 'plate',
+  车牌: 'plate',
+  plate: 'plate',
+  车主: 'owner',
+  车主姓名: 'owner',
+  owner: 'owner',
+  所属部门: 'department',
+  部门: 'department',
+  department: 'department',
+  联系电话: 'phone',
+  手机号: 'phone',
+  phone: 'phone',
+  车辆类型: 'vehicle_type',
+  vehicletype: 'vehicle_type',
+  vehicle_type: 'vehicle_type',
+  车牌颜色: 'plate_color',
+  platecolor: 'plate_color',
+  plate_color: 'plate_color',
+  生效日期: 'valid_from',
+  有效期开始: 'valid_from',
+  validfrom: 'valid_from',
+  valid_from: 'valid_from',
+  失效日期: 'valid_until',
+  有效期结束: 'valid_until',
+  validuntil: 'valid_until',
+  valid_until: 'valid_until',
+  启用: 'enabled',
+  enabled: 'enabled',
+  备注: 'note',
+  note: 'note',
+}
+
+const normalizeImportHeader = (header: string) => header.trim().replace(/\s+/g, '').toLowerCase()
+
+const importedVehicle = (row: Record<string, string>): VehiclePayload => {
+  const plateColorText = String(row.plate_color ?? '')
+    .trim()
+    .toLowerCase()
+  const plateColorMap: Record<string, VehiclePayload['plate_color']> = {
+    blue: 'blue',
+    蓝: 'blue',
+    蓝牌: 'blue',
+    yellow: 'yellow',
+    黄: 'yellow',
+    黄牌: 'yellow',
+    green: 'green',
+    绿: 'green',
+    绿牌: 'green',
+    auto: 'auto',
+    自动: 'auto',
+    自动判断: 'auto',
+  }
+  const enabledText = String(row.enabled ?? '')
+    .trim()
+    .toLowerCase()
+  return {
+    plate: String(row.plate ?? '')
+      .replace(/\s+/g, '')
+      .toUpperCase(),
+    owner: String(row.owner ?? '').trim(),
+    department: String(row.department ?? '').trim(),
+    phone: String(row.phone ?? '').trim(),
+    vehicle_type: String(row.vehicle_type ?? '').trim() || '内部车辆',
+    plate_color: plateColorMap[plateColorText] ?? 'auto',
+    valid_from: String(row.valid_from ?? '').trim() || null,
+    valid_until: String(row.valid_until ?? '').trim() || null,
+    enabled: !['0', 'false', '否', '停用', '禁用'].includes(enabledText),
+    note: String(row.note ?? '').trim(),
+  }
+}
+
+const openVehicleImport = () => {
+  vehicleImportFileName.value = ''
+  vehicleImportRows.value = []
+  vehicleImportResult.value = null
+  vehicleImportDuplicateMode.value = 'skip'
+  vehicleImportOpen.value = true
+}
+
+const selectVehicleImportFile = () => vehicleImportInput.value?.click()
+
+const toggleVehicleImportDuplicateMode = (event: Event) => {
+  vehicleImportDuplicateMode.value = (event.target as HTMLInputElement).checked ? 'update' : 'skip'
+}
+
+const parseVehicleImportFile = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  target.value = ''
+  if (!file) return
+  vehicleImportFileName.value = file.name
+  vehicleImportResult.value = null
+
+  if (file.name.toLowerCase().endsWith('.txt')) {
+    void file
+      .text()
+      .then((text) => {
+        const rows = text
+          .split(/\r?\n/)
+          .map((plate) => plate.trim())
+          .filter(Boolean)
+          .map((plate) => importedVehicle({ plate }))
+        if (rows.length > 500) return notify('单次最多导入500辆车', 'error')
+        vehicleImportRows.value = rows
+      })
+      .catch((error: unknown) => {
+        notify(`文件读取失败：${formatError(error)}`, 'error')
+        vehicleImportRows.value = []
+      })
+    return
+  }
+
+  Papa.parse<Record<string, string>>(file, {
+    header: true,
+    skipEmptyLines: 'greedy',
+    transformHeader: (header) => {
+      const normalized = normalizeImportHeader(header)
+      return importHeaderAliases[normalized] ?? header.trim()
+    },
+    complete: ({ data, errors }) => {
+      if (errors.length > 0) {
+        notify(`文件解析失败：${errors[0]?.message ?? 'CSV格式错误'}`, 'error')
+        vehicleImportRows.value = []
+        return
+      }
+      if (data.length > 500) {
+        notify('单次最多导入500辆车', 'error')
+        vehicleImportRows.value = []
+        return
+      }
+      vehicleImportRows.value = data.map(importedVehicle)
+    },
+    error: (error) => {
+      notify(`文件读取失败：${error.message}`, 'error')
+      vehicleImportRows.value = []
+    },
+  })
+}
+
+const downloadVehicleImportTemplate = () => {
+  const headers = [
+    '车牌号码',
+    '车主姓名',
+    '所属部门',
+    '联系电话',
+    '车辆类型',
+    '车牌颜色',
+    '生效日期',
+    '失效日期',
+    '启用',
+    '备注',
+  ]
+  const blob = new Blob([`\ufeff${headers.join(',')}\r\n`], {
+    type: 'text/csv;charset=utf-8',
+  })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = '车辆批量导入模板.csv'
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
+const submitVehicleImport = async () => {
+  if (vehicleImportRows.value.length === 0) return notify('请选择有效的CSV或TXT文件', 'error')
+  vehicleImporting.value = true
+  try {
+    vehicleImportResult.value = await importRegisteredVehicles(
+      vehicleImportRows.value,
+      vehicleImportDuplicateMode.value,
+    )
+    const result = vehicleImportResult.value
+    notify(
+      `导入完成：新增${result.created}，更新${result.updated}，跳过${result.skipped}，失败${result.failed}`,
+      result.failed > 0 ? 'error' : 'success',
+    )
+    await loadVehicles()
+  } catch (error) {
+    notify(formatError(error), 'error')
+  } finally {
+    vehicleImporting.value = false
   }
 }
 
@@ -735,9 +961,14 @@ onBeforeUnmount(() => {
                 placeholder="搜索车牌、车主或部门"
                 @keyup.enter="loadVehicles"
             /></label>
-            <button class="primary-button" @click="openVehicleForm()">
-              <Plus :size="17" /> 新增车辆
-            </button>
+            <div class="toolbar-actions">
+              <button class="secondary-button" @click="openVehicleImport">
+                <ArrowUpFromLine :size="17" /> 批量导入
+              </button>
+              <button class="primary-button" @click="openVehicleForm()">
+                <Plus :size="17" /> 新增车辆
+              </button>
+            </div>
           </section>
           <section class="content-section table-section">
             <div class="section-heading">
@@ -860,6 +1091,10 @@ onBeforeUnmount(() => {
                   <dt>控制方式</dt>
                   <dd>{{ gateControlLabel(gate) }}</dd>
                 </div>
+                <div v-if="gate.capabilities.barrier_status">
+                  <dt>道闸状态</dt>
+                  <dd>{{ barrierStatusLabel(gate.id) }}</dd>
+                </div>
                 <div>
                   <dt>最近识别</dt>
                   <dd>{{ gate.last_event_at || '暂无记录' }}</dd>
@@ -878,6 +1113,7 @@ onBeforeUnmount(() => {
                 ><button
                   v-if="gate.capabilities.manual_open"
                   class="primary-button"
+                  :disabled="!gate.online"
                   @click="openGate(gate)"
                 >
                   <DoorOpen :size="16" /> 远程开闸
@@ -939,6 +1175,131 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </form>
+    </div>
+
+    <div v-if="vehicleImportOpen" class="modal-backdrop" @click.self="vehicleImportOpen = false">
+      <section class="modal import-modal">
+        <div class="modal__head">
+          <div>
+            <h2>批量导入车辆</h2>
+            <p>停车软件车辆白名单</p>
+          </div>
+          <button type="button" class="icon-button" title="关闭" @click="vehicleImportOpen = false">
+            <X :size="20" />
+          </button>
+        </div>
+
+        <div class="import-file-row">
+          <button type="button" class="primary-button" @click="selectVehicleImportFile">
+            <ArrowUpFromLine :size="17" /> 选择文件
+          </button>
+          <button type="button" class="secondary-button" @click="downloadVehicleImportTemplate">
+            <ArrowDownToLine :size="17" /> 下载模板
+          </button>
+          <span>{{ vehicleImportFileName || 'CSV / TXT' }}</span>
+          <input
+            ref="vehicleImportInput"
+            class="visually-hidden"
+            type="file"
+            accept=".csv,.txt,text/csv,text/plain"
+            @change="parseVehicleImportFile"
+          />
+        </div>
+
+        <label class="toggle-row import-duplicate-mode">
+          <input
+            :checked="vehicleImportDuplicateMode === 'update'"
+            type="checkbox"
+            @change="toggleVehicleImportDuplicateMode"
+          />
+          <span>覆盖已有车牌档案</span>
+        </label>
+
+        <div v-if="vehicleImportResult" class="import-summary">
+          <div>
+            <span>新增</span><strong>{{ vehicleImportResult.created }}</strong>
+          </div>
+          <div>
+            <span>更新</span><strong>{{ vehicleImportResult.updated }}</strong>
+          </div>
+          <div>
+            <span>跳过</span><strong>{{ vehicleImportResult.skipped }}</strong>
+          </div>
+          <div :class="{ failed: vehicleImportResult.failed > 0 }">
+            <span>失败</span><strong>{{ vehicleImportResult.failed }}</strong>
+          </div>
+        </div>
+        <div v-else class="import-summary">
+          <div>
+            <span>待导入</span><strong>{{ vehicleImportRows.length }}</strong>
+          </div>
+        </div>
+
+        <div class="import-preview">
+          <table>
+            <thead>
+              <tr>
+                <th>行号</th>
+                <th>车牌号码</th>
+                <th>车主</th>
+                <th>所属部门</th>
+                <th>{{ vehicleImportResult ? '结果' : '车辆类型' }}</th>
+              </tr>
+            </thead>
+            <tbody v-if="vehicleImportResult">
+              <tr v-for="item in vehicleImportResult.items" :key="`${item.row}-${item.plate}`">
+                <td>{{ item.row }}</td>
+                <td>
+                  <strong class="plate-number">{{ item.plate || '-' }}</strong>
+                </td>
+                <td colspan="2">{{ item.message }}</td>
+                <td>
+                  <span :class="['import-result', item.status]">{{
+                    {
+                      created: '已新增',
+                      updated: '已更新',
+                      skipped: '已跳过',
+                      failed: '失败',
+                    }[item.status]
+                  }}</span>
+                </td>
+              </tr>
+            </tbody>
+            <tbody v-else>
+              <tr v-for="(item, index) in vehicleImportRows.slice(0, 20)" :key="index">
+                <td>{{ index + 1 }}</td>
+                <td>
+                  <strong class="plate-number">{{ item.plate || '-' }}</strong>
+                </td>
+                <td>{{ item.owner || '-' }}</td>
+                <td>{{ item.department || '-' }}</td>
+                <td>{{ item.vehicle_type }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div
+            v-if="!vehicleImportResult && vehicleImportRows.length === 0"
+            class="empty-state import-empty"
+          >
+            <ArrowUpFromLine :size="28" /><span>请选择导入文件</span>
+          </div>
+        </div>
+
+        <div class="modal__actions">
+          <button type="button" class="secondary-button" @click="vehicleImportOpen = false">
+            关闭
+          </button>
+          <button
+            v-if="!vehicleImportResult"
+            type="button"
+            class="primary-button"
+            :disabled="vehicleImporting || vehicleImportRows.length === 0"
+            @click="submitVehicleImport"
+          >
+            {{ vehicleImporting ? '导入中...' : '开始导入' }}
+          </button>
+        </div>
+      </section>
     </div>
 
     <Transition name="toast"
@@ -1195,6 +1556,11 @@ button {
 .secondary-button:hover {
   border-color: #9caea5;
   color: var(--green-dark);
+}
+.primary-button:disabled,
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 .link-button {
   padding: 0;
@@ -1711,6 +2077,10 @@ td small {
 .vehicle-toolbar .search-field {
   width: min(360px, 100%);
 }
+.toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
 .table-actions {
   display: flex;
   gap: 6px;
@@ -1863,6 +2233,9 @@ td small {
 .vehicle-modal {
   width: min(680px, 100%);
 }
+.import-modal {
+  width: min(860px, 100%);
+}
 .modal__head {
   display: flex;
   justify-content: space-between;
@@ -1920,6 +2293,108 @@ textarea {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 8px;
+}
+.import-file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-bottom: 12px;
+}
+.import-file-row > span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+}
+.import-duplicate-mode {
+  margin-bottom: 12px !important;
+}
+.import-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--line);
+}
+.import-summary div {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #f8faf9;
+}
+.import-summary div:only-child {
+  grid-column: 1 / -1;
+}
+.import-summary span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.import-summary strong {
+  font-size: 20px;
+}
+.import-summary .failed strong {
+  color: #b83f37;
+}
+.import-preview {
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+.import-preview table {
+  min-width: 680px;
+}
+.import-preview th,
+.import-preview td {
+  height: 44px;
+}
+.import-preview td[colspan] {
+  max-width: 420px;
+  color: var(--muted);
+}
+.import-result {
+  min-width: 48px;
+  height: 23px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 650;
+}
+.import-result.created,
+.import-result.updated {
+  color: #117350;
+  background: #e0f2ea;
+}
+.import-result.skipped {
+  color: #68756f;
+  background: #e9edeb;
+}
+.import-result.failed {
+  color: #a93b3b;
+  background: #fbe8e8;
+}
+.import-empty {
+  min-height: 180px;
 }
 .toast {
   position: fixed;

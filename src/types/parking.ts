@@ -20,6 +20,15 @@ export interface ParkingGate {
   }
 }
 
+export interface ParkingBarrierStatus {
+  lane_no: string
+  barrier: 'open' | 'closed' | 'unknown'
+  hold_open: boolean | null
+  ground_loop: boolean | null
+  camera_online: boolean
+  result_id: string | null
+}
+
 export interface ParkingEvent {
   id: number
   gate_id: string
@@ -84,6 +93,26 @@ export type VehiclePayload = Omit<
   | 'parking_result_id'
   | 'parking_synced_at'
 > & { enabled: boolean }
+
+export type VehicleImportStatus = 'created' | 'updated' | 'skipped' | 'failed'
+
+export interface VehicleImportItem {
+  row: number
+  plate: string
+  status: VehicleImportStatus
+  message: string
+  vehicle_id?: number | null
+}
+
+export interface VehicleImportResult {
+  success: boolean
+  total: number
+  created: number
+  updated: number
+  skipped: number
+  failed: number
+  items: VehicleImportItem[]
+}
 
 export interface ParkingStats {
   summary: {

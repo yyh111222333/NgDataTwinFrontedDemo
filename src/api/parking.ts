@@ -1,11 +1,13 @@
 import axios from 'axios'
 import type {
   ListResponse,
+  ParkingBarrierStatus,
   ParkingEvent,
   ParkingGate,
   ParkingSession,
   ParkingStats,
   RegisteredVehicle,
+  VehicleImportResult,
   VehiclePayload,
 } from '@/types/parking'
 
@@ -65,6 +67,11 @@ export async function openParkingGate(gateId: string) {
   return data
 }
 
+export async function getParkingGateBarrier(gateId: string) {
+  const { data } = await client.get<ParkingBarrierStatus>(`/public/gates/${gateId}/barrier`)
+  return data
+}
+
 export async function getParkingEvents(
   params: {
     limit?: number
@@ -96,6 +103,21 @@ export async function getRegisteredVehicles(query = '') {
 
 export async function createRegisteredVehicle(payload: VehiclePayload) {
   const { data } = await client.post<RegisteredVehicle>('/vehicles', payload)
+  return data
+}
+
+export async function importRegisteredVehicles(
+  items: VehiclePayload[],
+  duplicateMode: 'skip' | 'update',
+) {
+  const { data } = await client.post<VehicleImportResult>(
+    '/vehicles/import',
+    {
+      items,
+      duplicate_mode: duplicateMode,
+    },
+    { timeout: 120_000 },
+  )
   return data
 }
 
