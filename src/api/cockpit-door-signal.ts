@@ -41,6 +41,10 @@ const normalizeOccurredAt = (value: string): string => {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString()
 }
 
+export const resolvePersonnelDirection = (
+  value: PersonnelEvent['OutInType'],
+): DoorFlowDirection => (Number(value) === 0 ? 'out' : 'in')
+
 const getPersonnelSignals = async (
   validDoorIds: ReadonlySet<string>,
 ): Promise<CockpitDoorSignal[]> => {
@@ -71,7 +75,7 @@ const getPersonnelSignals = async (
     const doorId = PERSONNEL_DEVICE_SCENE_DOOR_IDS[deviceNo]
     if (!doorId || !validDoorIds.has(doorId) || !event.AddTime) return []
 
-    const direction: DoorFlowDirection = Number(event.OutInType) === 2 ? 'out' : 'in'
+    const direction = resolvePersonnelDirection(event.OutInType)
     const occurredAt = normalizeOccurredAt(event.AddTime)
     return [
       {

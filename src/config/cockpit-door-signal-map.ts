@@ -13,14 +13,20 @@ export const TRAIN_BARRIER_SCENE_DOOR_IDS: Readonly<Record<string, string>> = {
   '192.168.51.105': 'trainBarrier_02',
 }
 
-/** 人员平台设备序列号到全高闸场景 ID。 */
+/** 人员平台设备序列号到 SVG 人员闸机场景 ID。 */
 export const PERSONNEL_DEVICE_SCENE_DOOR_IDS: Readonly<Record<string, string>> = {
   // 一跨右侧竖排：从上到下依次为 51、52、53 网段。
   '2603093201352': 'fullheight_X02', // 192.168.51.100
   '26030931529A1': 'fullheight_X03', // 192.168.52.100
   '26030931798E7': 'fullheight_X04', // 192.168.53.100
 
-  // 一跨底部从右向左递进，最左侧点位。
+  // 中间两列 S 闸：主机号从右向左递增，同列从上到下递增。
+  '260309316281B': 'tripod_S02', // 192.168.52.105
+  '2603093144285': 'tripod_S04', // 192.168.52.106
+  '06': 'tripod_S01', // 192.168.53.112（当前离线旧编号）
+  '26030512276CE': 'tripod_S03', // 192.168.53.113
+
+  // 一跨最左侧点位。
   '2603051212818': 'fullheight_X01', // 192.168.53.118
 }
 
