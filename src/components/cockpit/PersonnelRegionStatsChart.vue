@@ -1,6 +1,9 @@
 <!-- 人员进出 — 区域进出统计柱状图，类目和值来自真实人脸机。 -->
 <script setup lang="ts">
-import { getPersonnelDeviceStats } from '@/api/personnel-access'
+import {
+  buildPersonnelDeviceDisplayData,
+  getPersonnelDeviceStats,
+} from '@/api/personnel-access'
 import { resolveAccessStatsAnchor } from '@/mocks/access-stats-shared'
 import type { PersonnelAccessGranularity, PersonnelDeviceStatsData } from '@/types/personnel-access'
 import { BarChart } from 'echarts/charts'
@@ -8,7 +11,7 @@ import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/compon
 import * as echarts from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { use } from 'echarts/core'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import VChart from 'vue-echarts'
 
 use([BarChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer])
@@ -22,13 +25,16 @@ const netIn = computed(
 )
 
 const loadStats = async () => {
+  if (loading.value) return
   loading.value = true
   loadError.value = null
   try {
-    statsData.value = await getPersonnelDeviceStats({
-      granularity: granularity.value!,
-      anchor: resolveAccessStatsAnchor(granularity.value!),
-    })
+    statsData.value = buildPersonnelDeviceDisplayData(
+      await getPersonnelDeviceStats({
+        granularity: granularity.value!,
+        anchor: resolveAccessStatsAnchor(granularity.value!),
+      }),
+    )
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : String(e)
     statsData.value = null
@@ -43,6 +49,13 @@ watch(granularity, () => {
 
 onMounted(() => {
   void loadStats()
+  refreshTimer = window.setInterval(() => void loadStats(), 10_000)
+})
+
+let refreshTimer: number | null = null
+
+onBeforeUnmount(() => {
+  if (refreshTimer !== null) window.clearInterval(refreshTimer)
 })
 
 const granularityOptions = computed(

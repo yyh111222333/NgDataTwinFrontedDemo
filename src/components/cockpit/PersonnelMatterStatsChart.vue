@@ -29,6 +29,7 @@ const loadPersonnelDepartmentStats = async (query: {
     :matter-types="[]"
     :loader="loadPersonnelDepartmentStats"
     :use-mock="false"
+    :refresh-interval-ms="10000"
     summary-label="总事项"
   />
 </template>

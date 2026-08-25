@@ -36,6 +36,28 @@ export async function getPersonnelDeviceStats(
   return unwrap(body, '获取设备进出统计失败')
 }
 
+/** K30 未配置离开方向时，沿用原版大屏的 1:1 离开柱展示；原始接口数据不变。 */
+export function buildPersonnelDeviceDisplayData(
+  data: PersonnelDeviceStatsData,
+): PersonnelDeviceStatsData {
+  if (data.summary.exitTotal > 0 || data.summary.enterTotal <= 0) return data
+
+  const items = data.items.map((item) => ({
+    ...item,
+    exitCount: item.enterCount,
+    totalCount: item.enterCount * 2 + item.unknownCount,
+  }))
+  return {
+    ...data,
+    items,
+    summary: {
+      ...data.summary,
+      exitTotal: data.summary.enterTotal,
+      totalCount: data.summary.enterTotal * 2 + data.summary.unknownTotal,
+    },
+  }
+}
+
 export async function getPersonnelDepartmentStats(
   query: PersonnelStatsQuery,
 ): Promise<PersonnelDepartmentStatsData> {

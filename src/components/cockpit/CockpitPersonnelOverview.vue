@@ -6,53 +6,9 @@ import PersonnelRegionStatsChart from '@/components/cockpit/PersonnelRegionStats
 import PersonnelTimeStatsChart from '@/components/cockpit/PersonnelTimeStatsChart.vue'
 import { personnelOverviewTabs } from '@/config/cockpit'
 import type { PersonnelAccessGranularity } from '@/types/personnel-access'
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { ref } from 'vue'
 
 const granularity = ref<PersonnelAccessGranularity>('day')
-const refreshToken = ref(0)
-let eventSource: EventSource | null = null
-let refreshTimer: number | null = null
-let eventRefreshTimer: number | null = null
-
-const refreshAll = () => {
-  refreshToken.value += 1
-}
-
-const stopPolling = () => {
-  if (refreshTimer === null) return
-  window.clearInterval(refreshTimer)
-  refreshTimer = null
-}
-
-const startPolling = () => {
-  if (refreshTimer !== null) return
-  refreshTimer = window.setInterval(refreshAll, 30_000)
-}
-
-const scheduleRealtimeRefresh = () => {
-  if (eventRefreshTimer !== null) return
-  eventRefreshTimer = window.setTimeout(() => {
-    eventRefreshTimer = null
-    refreshAll()
-  }, 1_000)
-}
-
-onMounted(() => {
-  refreshAll()
-  startPolling()
-  eventSource = new EventSource('/api/public/realtime/stream')
-  ;['personnel.event', 'personnel.stats', 'personnel.device'].forEach((eventName) => {
-    eventSource?.addEventListener(eventName, scheduleRealtimeRefresh)
-  })
-  eventSource.addEventListener('open', stopPolling)
-  eventSource.addEventListener('error', startPolling)
-})
-
-onBeforeUnmount(() => {
-  eventSource?.close()
-  stopPolling()
-  if (eventRefreshTimer !== null) window.clearTimeout(eventRefreshTimer)
-})
 </script>
 
 <template>
@@ -60,17 +16,14 @@ onBeforeUnmount(() => {
     <template #default="{ activeTab }">
       <PersonnelRegionStatsChart
         v-if="activeTab === 'region'"
-        :key="`region-${refreshToken}`"
         v-model:granularity="granularity"
       />
       <PersonnelMatterStatsChart
         v-else-if="activeTab === 'matter'"
-        :key="`matter-${refreshToken}`"
         v-model:granularity="granularity"
       />
       <PersonnelTimeStatsChart
         v-else-if="activeTab === 'time'"
-        :key="`time-${refreshToken}`"
         v-model:granularity="granularity"
       />
       <div v-else class="personnel-overview__placeholder">
