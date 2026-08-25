@@ -41,6 +41,13 @@ describe('personnel device SVG mapping', () => {
     })
   })
 
+  it('uses the current S1 serial instead of the retired K30 record', () => {
+    const s1Device = PERSONNEL_DEVICES.find((device) => device.ip === '192.168.53.112')
+
+    expect(s1Device?.deviceNo).toBe('2603093189098')
+    expect(PERSONNEL_DEVICE_SCENE_DOOR_IDS['06']).toBeUndefined()
+  })
+
   it('uses the K30 direction convention for animation', () => {
     expect(resolvePersonnelDirection(1)).toBe('in')
     expect(resolvePersonnelDirection(0)).toBe('out')

@@ -23,7 +23,7 @@ export const PERSONNEL_DEVICE_SCENE_DOOR_IDS: Readonly<Record<string, string>> =
   // 中间两列 S 闸：主机号从右向左递增，同列从上到下递增。
   '260309316281B': 'tripod_S02', // 192.168.52.105
   '2603093144285': 'tripod_S04', // 192.168.52.106
-  '06': 'tripod_S01', // 192.168.53.112（当前离线旧编号）
+  '2603093189098': 'tripod_S01', // 192.168.53.112
   '26030512276CE': 'tripod_S03', // 192.168.53.113
 
   // 一跨最左侧点位。
@@ -37,7 +37,7 @@ export const PERSONNEL_DEVICES = [
   { deviceNo: '260309316281B', ip: '192.168.52.105' },
   { deviceNo: '2603093144285', ip: '192.168.52.106' },
   { deviceNo: '26030931798E7', ip: '192.168.53.100' },
-  { deviceNo: '06', ip: '192.168.53.112', online: false },
+  { deviceNo: '2603093189098', ip: '192.168.53.112' },
   { deviceNo: '26030512276CE', ip: '192.168.53.113' },
   { deviceNo: '2603051212818', ip: '192.168.53.118' },
 ] as const
