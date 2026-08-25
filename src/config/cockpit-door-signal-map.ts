@@ -30,6 +30,31 @@ export const PERSONNEL_DEVICE_SCENE_DOOR_IDS: Readonly<Record<string, string>> =
   '2603051212818': 'fullheight_X01', // 192.168.53.118
 }
 
+/** 人员进出概况按当前 SVG 点位归并到厂区，顺序与图表横轴一致。 */
+export const PERSONNEL_ACCESS_REGIONS = [
+  { id: 'A', name: 'A区' },
+  { id: 'F', name: 'F区' },
+  { id: 'E', name: 'E区' },
+  { id: 'D', name: 'D区' },
+  { id: 'L', name: 'L区' },
+  { id: 'K', name: 'K区' },
+  { id: 'J', name: 'J区' },
+] as const
+
+export type PersonnelAccessRegionId = (typeof PERSONNEL_ACCESS_REGIONS)[number]['id']
+
+/** 人脸机序列号到 SVG 所在厂区；A、F 当前没有对应人脸机。 */
+export const PERSONNEL_DEVICE_REGION_IDS: Readonly<Record<string, PersonnelAccessRegionId>> = {
+  '2603093189098': 'E', // S1, 192.168.53.112
+  '26030512276CE': 'D', // S3, 192.168.53.113
+  '2603051212818': 'D', // X1, 192.168.53.118
+  '2603093201352': 'L', // X2, 192.168.51.100
+  '260309316281B': 'K', // S2, 192.168.52.105
+  '26030931529A1': 'K', // X3, 192.168.52.100
+  '2603093144285': 'J', // S4, 192.168.52.106
+  '26030931798E7': 'J', // X4, 192.168.53.100
+}
+
 /** 人员平台当前在线设备，保留 IP 便于现场确认全高闸点位。 */
 export const PERSONNEL_DEVICES = [
   { deviceNo: '2603093201352', ip: '192.168.51.100' },

@@ -1,4 +1,4 @@
-<!-- 人员进出 — 区域进出统计柱状图，类目和值来自真实人脸机。 -->
+<!-- 人员进出 — 区域进出统计柱状图，真实人脸机数据按 SVG 厂区归并。 -->
 <script setup lang="ts">
 import {
   buildPersonnelDeviceDisplayData,
