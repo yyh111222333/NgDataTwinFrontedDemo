@@ -1,8 +1,8 @@
-<!-- 人员进出 — 区域进出统计柱状图（科技风双柱：进入/离开） -->
+<!-- 人员进出 — 真实设备进出统计 -->
 <script setup lang="ts">
-import { getPersonnelRegionStats } from '@/api/personnel-access'
+import { getPersonnelDeviceStats } from '@/api/personnel-access'
 import { resolveAccessStatsAnchor } from '@/mocks/access-stats-shared'
-import type { PersonnelAccessGranularity, PersonnelRegionStatsData } from '@/types/personnel-access'
+import type { PersonnelAccessGranularity, PersonnelDeviceStatsData } from '@/types/personnel-access'
 import { BarChart } from 'echarts/charts'
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
 import * as echarts from 'echarts/core'
@@ -14,7 +14,7 @@ import VChart from 'vue-echarts'
 use([BarChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer])
 
 const granularity = defineModel<PersonnelAccessGranularity>('granularity', { default: 'day' })
-const statsData = ref<PersonnelRegionStatsData | null>(null)
+const statsData = ref<PersonnelDeviceStatsData | null>(null)
 const loading = ref(false)
 const loadError = ref<string | null>(null)
 
@@ -22,10 +22,10 @@ const loadStats = async () => {
   loading.value = true
   loadError.value = null
   try {
-    statsData.value = await getPersonnelRegionStats(
-      { granularity: granularity.value!, anchor: resolveAccessStatsAnchor(granularity.value!) },
-      { useMock: true },
-    )
+    statsData.value = await getPersonnelDeviceStats({
+      granularity: granularity.value!,
+      anchor: resolveAccessStatsAnchor(granularity.value!),
+    })
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : String(e)
     statsData.value = null
@@ -69,7 +69,7 @@ const chartOption = computed(() => {
     return { backgroundColor: 'transparent' }
   }
 
-  const categories = data.items.map((it) => it.regionName)
+  const categories = data.items.map((it) => it.deviceName)
   const enterValues = data.items.map((it) => it.enterCount)
   const exitValues = data.items.map((it) => it.exitCount)
   const maxVal = Math.max(...enterValues, ...exitValues, 1)
@@ -211,8 +211,15 @@ const chartOption = computed(() => {
     <div class="region-stats-chart__main">
       <p v-if="loadError" class="region-stats-chart__state is-error">{{ loadError }}</p>
       <p v-else-if="loading && !statsData" class="region-stats-chart__state">加载中…</p>
+      <p v-else-if="statsData && !statsData.items.length" class="region-stats-chart__state">
+        暂无真实通行记录
+      </p>
       <VChart v-else class="region-stats-chart__echart" :option="chartOption" autoresize />
-      <div v-if="loading && statsData" class="region-stats-chart__loading-mask" aria-hidden="true" />
+      <div
+        v-if="loading && statsData"
+        class="region-stats-chart__loading-mask"
+        aria-hidden="true"
+      />
     </div>
 
     <div v-if="statsData" class="region-stats-chart__summary">
@@ -223,14 +230,21 @@ const chartOption = computed(() => {
         <em>离开</em>{{ statsData.summary.exitTotal }}
       </span>
       <span class="region-stats-chart__metric is-net">
-        <em>净入</em>{{ statsData.summary.netIn >= 0 ? '+' : '' }}{{ statsData.summary.netIn }}
+        <em>总通行</em>{{ statsData.summary.totalCount }}
       </span>
     </div>
+    <span
+      v-if="statsData?.partial && statsData.coverageStartAt"
+      class="region-stats-chart__coverage"
+    >
+      统计自 {{ statsData.coverageStartAt.slice(5, 16) }}
+    </span>
   </div>
 </template>
 
 <style scoped>
 .region-stats-chart {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -324,8 +338,7 @@ const chartOption = computed(() => {
   border-radius: 4px;
   border: 1px solid rgba(48, 220, 255, 0.1);
   background:
-    linear-gradient(180deg, rgba(48, 200, 255, 0.03) 0%, transparent 40%),
-    rgba(2, 10, 20, 0.35);
+    linear-gradient(180deg, rgba(48, 200, 255, 0.03) 0%, transparent 40%), rgba(2, 10, 20, 0.35);
   overflow: hidden;
 }
 
@@ -333,7 +346,12 @@ const chartOption = computed(() => {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent 0%, rgba(48, 200, 255, 0.04) 50%, transparent 100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(48, 200, 255, 0.04) 50%,
+    transparent 100%
+  );
   pointer-events: none;
   opacity: 0.6;
 }
@@ -403,5 +421,13 @@ const chartOption = computed(() => {
 
 .region-stats-chart__metric.is-net {
   color: rgba(220, 245, 255, 0.92);
+}
+
+.region-stats-chart__coverage {
+  position: absolute;
+  right: 6px;
+  bottom: 2px;
+  font-size: 8px;
+  color: rgba(150, 190, 208, 0.52);
 }
 </style>

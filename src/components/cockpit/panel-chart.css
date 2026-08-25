@@ -1,9 +1,19 @@
 .panel-chart {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
   gap: 4px;
+}
+
+.panel-chart__coverage {
+  position: absolute;
+  right: 4px;
+  bottom: 1px;
+  font-size: 8px;
+  color: rgba(150, 190, 208, 0.52);
+  pointer-events: none;
 }
 
 .panel-chart__toolbar {

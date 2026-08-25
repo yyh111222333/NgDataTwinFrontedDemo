@@ -7,12 +7,15 @@ import type { PersonnelAccessGranularity } from '@/types/personnel-access'
 
 const granularity = defineModel<PersonnelAccessGranularity>('granularity', { default: 'day' })
 
-const loadPersonnelTimeStats = (
-  query: { granularity: AccessStatsGranularity; anchor: string },
-  _options?: { useMock: boolean },
-) => getPersonnelTimeStats(query, { useMock: true })
+const loadPersonnelTimeStats = (query: { granularity: AccessStatsGranularity; anchor: string }) =>
+  getPersonnelTimeStats(query)
 </script>
 
 <template>
-  <TimeDistributionChart v-model:granularity="granularity" :loader="loadPersonnelTimeStats" />
+  <TimeDistributionChart
+    v-model:granularity="granularity"
+    :loader="loadPersonnelTimeStats"
+    :use-mock="false"
+    show-total
+  />
 </template>

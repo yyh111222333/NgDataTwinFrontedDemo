@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import { useGranularityStatsChart } from '@/composables/useGranularityStatsChart'
 import type { AccessStatsGranularity } from '@/mocks/access-stats-shared'
-import { LineChart } from 'echarts/charts'
+import { LineChart, type LineSeriesOption } from 'echarts/charts'
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
 import * as echarts from 'echarts/core'
 import { use } from 'echarts/core'
@@ -14,10 +14,20 @@ use([LineChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer
 
 type TimeStatsPayload = {
   periodLabel?: string
-  items: Array<{ slotLabel: string; enterCount: number; exitCount: number }>
+  coverageStartAt?: string | null
+  partial?: boolean
+  items: Array<{
+    slotLabel: string
+    enterCount: number
+    exitCount: number
+    unknownCount?: number
+    totalCount?: number
+  }>
   summary: {
     enterTotal: number
     exitTotal: number
+    unknownTotal?: number
+    totalCount?: number
     peakSlotLabel: string
     peakTotal: number
   }
@@ -31,6 +41,7 @@ const props = defineProps<{
   ) => Promise<TimeStatsPayload>
   useMock?: boolean
   refreshIntervalMs?: number
+  showTotal?: boolean
 }>()
 
 const granularity = defineModel<AccessStatsGranularity>('granularity', { default: 'day' })
@@ -40,7 +51,7 @@ const exitLineColor = '#e8a84a'
 
 const { statsData, loading, loadError, granularityOptions } = useGranularityStatsChart(
   props.loader,
-  props.useMock ?? true,
+  props.useMock ?? false,
   granularity,
   props.refreshIntervalMs ?? 0,
 )
@@ -52,6 +63,54 @@ const chartOption = computed(() => {
   const categories = data.items.map((it) => it.slotLabel)
   const enterValues = data.items.map((it) => it.enterCount)
   const exitValues = data.items.map((it) => it.exitCount)
+  const totalValues = data.items.map((it) => it.totalCount ?? it.enterCount + it.exitCount)
+  const series: LineSeriesOption[] = [
+    {
+      name: '进入',
+      type: 'line',
+      data: enterValues,
+      smooth: true,
+      symbol: 'circle',
+      symbolSize: 6,
+      lineStyle: { color: enterLineColor, width: 2 },
+      itemStyle: { color: enterLineColor },
+      areaStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: 'rgba(92, 232, 255, 0.25)' },
+          { offset: 1, color: 'rgba(92, 232, 255, 0.02)' },
+        ]),
+      },
+    },
+    {
+      name: '离开',
+      type: 'line',
+      data: exitValues,
+      smooth: true,
+      symbol: 'circle',
+      symbolSize: 6,
+      lineStyle: { color: exitLineColor, width: 2 },
+      itemStyle: { color: exitLineColor },
+      areaStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: 'rgba(232, 168, 74, 0.22)' },
+          { offset: 1, color: 'rgba(232, 168, 74, 0.02)' },
+        ]),
+      },
+    },
+  ]
+  if (props.showTotal) {
+    series.push({
+      name: '总通行',
+      type: 'line',
+      data: totalValues,
+      smooth: true,
+      symbol: 'none',
+      symbolSize: 0,
+      lineStyle: { color: '#c4b5fd', width: 1.5, type: 'dashed' },
+      itemStyle: { color: '#c4b5fd' },
+      areaStyle: { color: 'transparent' },
+    })
+  }
 
   return {
     backgroundColor: 'transparent',
@@ -64,7 +123,9 @@ const chartOption = computed(() => {
       itemWidth: 10,
       itemHeight: 8,
       textStyle: { color: 'rgba(200, 238, 252, 0.88)', fontSize: 10 },
-      data: [{ name: '进入' }, { name: '离开' }],
+      data: props.showTotal
+        ? [{ name: '进入' }, { name: '离开' }, { name: '总通行' }]
+        : [{ name: '进入' }, { name: '离开' }],
     },
     tooltip: {
       trigger: 'axis',
@@ -86,50 +147,7 @@ const chartOption = computed(() => {
       splitLine: { lineStyle: { color: 'rgba(48, 200, 255, 0.08)' } },
       axisLabel: { color: 'rgba(160, 200, 220, 0.55)', fontSize: 10 },
     },
-    series: [
-      {
-        name: '进入',
-        type: 'line',
-        data: enterValues,
-        smooth: true,
-        symbol: 'circle',
-        symbolSize: 6,
-        lineStyle: {
-          color: enterLineColor,
-          width: 2,
-        },
-        itemStyle: {
-          color: enterLineColor,
-        },
-        areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(92, 232, 255, 0.25)' },
-            { offset: 1, color: 'rgba(92, 232, 255, 0.02)' },
-          ]),
-        },
-      },
-      {
-        name: '离开',
-        type: 'line',
-        data: exitValues,
-        smooth: true,
-        symbol: 'circle',
-        symbolSize: 6,
-        lineStyle: {
-          color: exitLineColor,
-          width: 2,
-        },
-        itemStyle: {
-          color: exitLineColor,
-        },
-        areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(232, 168, 74, 0.22)' },
-            { offset: 1, color: 'rgba(232, 168, 74, 0.02)' },
-          ]),
-        },
-      },
-    ],
+    series,
   }
 })
 </script>
@@ -166,10 +184,16 @@ const chartOption = computed(() => {
       <span class="panel-chart__metric is-warn"
         ><em>离开</em>{{ statsData.summary.exitTotal }}</span
       >
+      <span v-if="showTotal" class="panel-chart__metric">
+        <em>总通行</em>{{ statsData.summary.totalCount ?? 0 }}
+      </span>
       <span class="panel-chart__metric">
         <em>高峰</em>{{ statsData.summary.peakSlotLabel }} ({{ statsData.summary.peakTotal }})
       </span>
     </div>
+    <span v-if="statsData?.partial && statsData.coverageStartAt" class="panel-chart__coverage">
+      统计自 {{ statsData.coverageStartAt.slice(5, 16) }}
+    </span>
   </div>
 </template>
 

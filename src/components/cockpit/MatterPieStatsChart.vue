@@ -8,11 +8,14 @@ import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { computed } from 'vue'
 import VChart from 'vue-echarts'
+import { PERSONNEL_DEPARTMENT_COLORS } from '@/types/personnel-access'
 
 use([PieChart, TooltipComponent, LegendComponent, CanvasRenderer])
 
 type MatterStatsPayload = {
   periodLabel?: string
+  coverageStartAt?: string | null
+  partial?: boolean
   items: Array<{ matterId: string; matterName: string; count: number }>
   summary: { totalCount: number }
   granularityOptions?: ReadonlyArray<{ value: AccessStatsGranularity; label: string }>
@@ -35,7 +38,7 @@ const colorMap = Object.fromEntries(props.matterTypes.map((m) => [m.id, m.color]
 
 const { statsData, loading, loadError, granularityOptions } = useGranularityStatsChart(
   props.loader,
-  props.useMock ?? true,
+  props.useMock ?? false,
   granularity,
   props.refreshIntervalMs ?? 0,
 )
@@ -81,15 +84,20 @@ const chartOption = computed(() => {
         label: { show: false },
         emphasis: { scale: true, scaleSize: 6, label: { show: false } },
         labelLine: { show: false },
-        data: data.items.map((it) => ({
-          name: it.matterName,
-          value: it.count,
-          itemStyle: {
-            color: colorMap[it.matterId],
-            shadowBlur: 12,
-            shadowColor: `${colorMap[it.matterId]}66`,
-          },
-        })),
+        data: data.items.map((it, index) => {
+          const color =
+            colorMap[it.matterId] ??
+            PERSONNEL_DEPARTMENT_COLORS[index % PERSONNEL_DEPARTMENT_COLORS.length]
+          return {
+            name: it.matterName,
+            value: it.count,
+            itemStyle: {
+              color,
+              shadowBlur: 12,
+              shadowColor: `${color}66`,
+            },
+          }
+        }),
       },
     ],
   }
@@ -120,6 +128,9 @@ const chartOption = computed(() => {
     <div class="panel-chart__main">
       <p v-if="loadError" class="panel-chart__state is-error">{{ loadError }}</p>
       <p v-else-if="loading && !statsData" class="panel-chart__state">加载中…</p>
+      <p v-else-if="statsData && !statsData.items.length" class="panel-chart__state">
+        暂无真实通行记录
+      </p>
       <VChart v-else class="panel-chart__echart" :option="chartOption" autoresize />
       <div v-if="loading && statsData" class="panel-chart__loading-mask" aria-hidden="true" />
     </div>
@@ -129,6 +140,9 @@ const chartOption = computed(() => {
         >{{ statsData.summary.totalCount }}
       </span>
     </div>
+    <span v-if="statsData?.partial && statsData.coverageStartAt" class="panel-chart__coverage">
+      统计自 {{ statsData.coverageStartAt.slice(5, 16) }}
+    </span>
   </div>
 </template>
 
