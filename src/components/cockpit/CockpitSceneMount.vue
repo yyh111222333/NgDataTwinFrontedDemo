@@ -285,7 +285,7 @@ const triggerDoorAnimation = (doorId: string, open: boolean) => {
     triggerPersonAnimation(doorId, open)
     return
   }
-  if (isTripodGate(doorId)) {
+  if (isTripodGate(doorId) && open) {
     triggerTripodAnimation(doorId)
   }
 }

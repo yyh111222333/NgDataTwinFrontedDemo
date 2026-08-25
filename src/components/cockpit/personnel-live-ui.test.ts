@@ -45,4 +45,10 @@ describe('personnel cockpit live data wiring', () => {
     expect(timeChart).toContain(':refresh-interval-ms="10000"')
     expect(timeChart).not.toContain('show-total')
   })
+
+  it('plays a tripod animation only for a new open signal, not for its reset', () => {
+    const scene = source('src/components/cockpit/CockpitSceneMount.vue')
+
+    expect(scene).toContain('if (isTripodGate(doorId) && open)')
+  })
 })
