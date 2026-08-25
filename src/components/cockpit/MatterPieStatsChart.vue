@@ -128,9 +128,6 @@ const chartOption = computed(() => {
     <div class="panel-chart__main">
       <p v-if="loadError" class="panel-chart__state is-error">{{ loadError }}</p>
       <p v-else-if="loading && !statsData" class="panel-chart__state">加载中…</p>
-      <p v-else-if="statsData && !statsData.items.length" class="panel-chart__state">
-        暂无真实通行记录
-      </p>
       <VChart v-else class="panel-chart__echart" :option="chartOption" autoresize />
       <div v-if="loading && statsData" class="panel-chart__loading-mask" aria-hidden="true" />
     </div>
@@ -140,9 +137,6 @@ const chartOption = computed(() => {
         >{{ statsData.summary.totalCount }}
       </span>
     </div>
-    <span v-if="statsData?.partial && statsData.coverageStartAt" class="panel-chart__coverage">
-      统计自 {{ statsData.coverageStartAt.slice(5, 16) }}
-    </span>
   </div>
 </template>
 

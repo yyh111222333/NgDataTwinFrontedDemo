@@ -1,4 +1,4 @@
-<!-- 人员进出 — 真实部门通行分布 -->
+<!-- 人员进出 — 事项分布，沿用原图表样式并填充真实部门通行数据。 -->
 <script setup lang="ts">
 import { getPersonnelDepartmentStats } from '@/api/personnel-access'
 import MatterPieStatsChart from '@/components/cockpit/MatterPieStatsChart.vue'
@@ -29,6 +29,6 @@ const loadPersonnelDepartmentStats = async (query: {
     :matter-types="[]"
     :loader="loadPersonnelDepartmentStats"
     :use-mock="false"
-    summary-label="通行总数"
+    summary-label="总事项"
   />
 </template>

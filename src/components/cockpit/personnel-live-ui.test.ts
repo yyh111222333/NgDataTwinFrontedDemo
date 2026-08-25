@@ -20,23 +20,28 @@ describe('personnel cockpit live data wiring', () => {
     expect(combined).toContain('getPersonnelDepartmentStats')
   })
 
-  it('shows K30 summary and listens for realtime personnel events', () => {
+  it('keeps the original panel layout and listens for realtime personnel events', () => {
     const component = source('src/components/cockpit/CockpitPersonnelOverview.vue')
 
-    expect(component).toContain('getPersonnelSummary')
     expect(component).toContain('new EventSource')
     expect(component).toContain('personnel.event')
-    expect(component).toContain('今日通行')
-    expect(component).toContain('数据暂不可用')
+    expect(component).not.toContain('personnel-overview__summary')
+    expect(component).not.toContain('今日通行')
     expect(component).toContain("eventSource.addEventListener('open'")
     expect(component).toContain("eventSource.addEventListener('error'")
   })
 
-  it('uses truthful device and department tab labels', () => {
+  it('restores the original tab labels and chart presentation', () => {
     const config = source('src/config/cockpit.ts')
+    const regionChart = source('src/components/cockpit/PersonnelRegionStatsChart.vue')
+    const matterChart = source('src/components/cockpit/PersonnelMatterStatsChart.vue')
+    const timeChart = source('src/components/cockpit/PersonnelTimeStatsChart.vue')
 
-    expect(config).toContain("label: '设备进出统计'")
-    expect(config).toContain("label: '部门通行分布'")
-    expect(config).not.toContain("label: '事项分布'")
+    expect(config).toContain("label: '区域进出统计'")
+    expect(config).toContain("label: '事项分布'")
+    expect(config).not.toContain("label: '设备进出统计'")
+    expect(regionChart).toContain('<em>净入</em>')
+    expect(matterChart).toContain('summary-label="总事项"')
+    expect(timeChart).not.toContain('show-total')
   })
 })

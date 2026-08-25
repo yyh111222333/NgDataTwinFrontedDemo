@@ -1,4 +1,4 @@
-<!-- 人员进出 — 真实设备进出统计 -->
+<!-- 人员进出 — 区域进出统计柱状图，类目和值来自真实人脸机。 -->
 <script setup lang="ts">
 import { getPersonnelDeviceStats } from '@/api/personnel-access'
 import { resolveAccessStatsAnchor } from '@/mocks/access-stats-shared'
@@ -17,6 +17,9 @@ const granularity = defineModel<PersonnelAccessGranularity>('granularity', { def
 const statsData = ref<PersonnelDeviceStatsData | null>(null)
 const loading = ref(false)
 const loadError = ref<string | null>(null)
+const netIn = computed(
+  () => (statsData.value?.summary.enterTotal ?? 0) - (statsData.value?.summary.exitTotal ?? 0),
+)
 
 const loadStats = async () => {
   loading.value = true
@@ -211,9 +214,6 @@ const chartOption = computed(() => {
     <div class="region-stats-chart__main">
       <p v-if="loadError" class="region-stats-chart__state is-error">{{ loadError }}</p>
       <p v-else-if="loading && !statsData" class="region-stats-chart__state">加载中…</p>
-      <p v-else-if="statsData && !statsData.items.length" class="region-stats-chart__state">
-        暂无真实通行记录
-      </p>
       <VChart v-else class="region-stats-chart__echart" :option="chartOption" autoresize />
       <div
         v-if="loading && statsData"
@@ -230,21 +230,14 @@ const chartOption = computed(() => {
         <em>离开</em>{{ statsData.summary.exitTotal }}
       </span>
       <span class="region-stats-chart__metric is-net">
-        <em>总通行</em>{{ statsData.summary.totalCount }}
+        <em>净入</em>{{ netIn >= 0 ? '+' : '' }}{{ netIn }}
       </span>
     </div>
-    <span
-      v-if="statsData?.partial && statsData.coverageStartAt"
-      class="region-stats-chart__coverage"
-    >
-      统计自 {{ statsData.coverageStartAt.slice(5, 16) }}
-    </span>
   </div>
 </template>
 
 <style scoped>
 .region-stats-chart {
-  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -423,11 +416,4 @@ const chartOption = computed(() => {
   color: rgba(220, 245, 255, 0.92);
 }
 
-.region-stats-chart__coverage {
-  position: absolute;
-  right: 6px;
-  bottom: 2px;
-  font-size: 8px;
-  color: rgba(150, 190, 208, 0.52);
-}
 </style>

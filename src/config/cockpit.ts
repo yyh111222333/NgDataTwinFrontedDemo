@@ -49,8 +49,8 @@ export type PanelTabItem = {
 
 // 人员进出概况子 Tab
 export const personnelOverviewTabs: PanelTabItem[] = [
-  { key: 'region', label: '设备进出统计' },
-  { key: 'matter', label: '部门通行分布' },
+  { key: 'region', label: '区域进出统计' },
+  { key: 'matter', label: '事项分布' },
   { key: 'time', label: '进出时间分布' },
 ]
 

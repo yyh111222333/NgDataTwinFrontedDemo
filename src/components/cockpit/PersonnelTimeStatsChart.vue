@@ -16,6 +16,5 @@ const loadPersonnelTimeStats = (query: { granularity: AccessStatsGranularity; an
     v-model:granularity="granularity"
     :loader="loadPersonnelTimeStats"
     :use-mock="false"
-    show-total
   />
 </template>
